@@ -152,6 +152,7 @@ def settings_css(font="Geist"):
     t = dict(text=TEXT, t2=TEXT_2, t3=TEXT_3, hair=HAIRLINE, hair2=HAIRLINE_STRONG, fill=FILL, fillh=FILL_HOVER,
              gold=CHAMPAGNE, ease=CSS_EASE, fast=CSS_FAST, slow=CSS_SLOW, track=TRACKING_LABEL, font=font)
     return """
+@define-color placeholder_text_color rgba(255, 255, 255, 0.45);
 #glass * {{ color: {text}; font-family: "{font}", "Geist", "SF Pro Text", sans-serif; }}
 #glass .dim {{ color: {t2}; }}
 #glass .h1 {{ font-size: 30px; font-weight: 300; letter-spacing: -0.02em; }}
