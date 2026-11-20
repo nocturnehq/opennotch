@@ -360,10 +360,26 @@ def test_parity_settings():
     assert cfg["day_clock_color"] == "black" and cfg["chat_opacity"] == 75 and cfg["reminder_sound"] == "repeat"
 
 
+def test_webpanel(tmp):
+    from .webpanel import WebPinStore, resolve_input, site_label, web_address
+
+    assert web_address("https://music.youtube.com/") == "https://music.youtube.com/"
+    assert web_address("javascript:alert(1)") is None
+    assert resolve_input("spotify.com") == "https://spotify.com"
+    assert resolve_input("lofi hip hop").startswith("https://duckduckgo.com/?q=lofi+hip+hop")
+    assert site_label("https://www.github.com/open") == "Github"
+
+    store = WebPinStore(os.path.join(tmp, "webpins.json"))
+    assert store.toggle("https://music.youtube.com/", "YT Music")
+    assert store.has("https://music.youtube.com/")
+    assert not store.toggle("https://music.youtube.com/", "YT Music")
+    assert not store.has("https://music.youtube.com/")
+
+
 def main():
     tests = [("config loader", test_config), ("lyrics parser", test_lyrics), ("clipboard store", test_clipstore),
              ("socket protocol", test_protocol), ("mic recording parser", lambda _t: test_source_outputs()),
-             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1()), ("extra widgets", test_extra_widgets), ("panels & app rules", lambda _t: test_panels_and_rules()), ("notchpixel parity settings", lambda _t: test_parity_settings())]
+             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1()), ("extra widgets", test_extra_widgets), ("panels & app rules", lambda _t: test_panels_and_rules()), ("notchpixel parity settings", lambda _t: test_parity_settings()), ("web panel", test_webpanel)]
     failed = 0
     for name, fn in tests:
         with tempfile.TemporaryDirectory() as tmp:
