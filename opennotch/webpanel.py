@@ -41,8 +41,23 @@ def web_address(value, assume_https=False):
     return None
 
 
+DDG_CSS = """
+:root { --theme-col-bg-page: #0b0b0c !important; --theme-col-bg-header: #0b0b0c !important;
+  --theme-col-bg-card: #141418 !important; --theme-col-txt-title: #ffffff !important;
+  --theme-col-accent: #ffffff !important; --color-orange: #ffffff !important; }
+body, html, .site-wrapper, .header-wrap { background: #0b0b0c !important; color: #ffffff !important; }
+.search--header, .search--adv, form[role="search"] {
+  background: rgba(255,255,255,0.07) !important; border: 1px solid rgba(255,255,255,0.16) !important;
+  box-shadow: none !important; }
+.search__button, button[type="submit"], .searchbox_searchButton__F5Bwq {
+  background: #ffffff !important; color: #0b0b0c !important; fill: #0b0b0c !important; }
+.search__button:hover, button[type="submit"]:hover { background: #e5e5ea !important; }
+a, a:visited { color: #ffffff !important; }
+"""
+
+
 def resolve_input(value):
-    """Turn a URL/domain into an https URL, or a plain search phrase into a DuckDuckGo search URL."""
+    """Turn a URL/domain into an https URL, or a plain search phrase into a monochrome dark DuckDuckGo search."""
     text = (value or "").strip()
     if not text:
         return None
@@ -50,7 +65,8 @@ def resolve_input(value):
         return web_address(text)
     if " " not in text and ("." in text or text.startswith("localhost")):
         return web_address(text, assume_https=True)
-    return f"https://duckduckgo.com/?q={quote_plus(text)}"
+    return (f"https://duckduckgo.com/?q={quote_plus(text)}"
+            "&kae=d&k7=0b0b0c&kj=0b0b0c&k8=ffffff&k9=ffffff&kaa=9a9aa2&kx=9a9aa2&k21=141418")
 
 
 def site_label(uri):
@@ -321,7 +337,20 @@ class WebPanel(Gtk.Box):
         manager = WebKit2.WebsiteDataManager(base_data_directory=data_root, base_cache_directory=cache_root)
         context = WebKit2.WebContext.new_with_website_data_manager(manager)
         context.connect("download-started", self._cancel_download)
-        self.view = WebKit2.WebView.new_with_context(context)
+        ucm = WebKit2.UserContentManager()
+        ucm.add_style_sheet(WebKit2.UserStyleSheet(
+            DDG_CSS,
+            WebKit2.UserContentInjectedFrames.ALL_FRAMES,
+            WebKit2.UserStyleLevel.USER,
+            ["https://duckduckgo.com/*", "https://*.duckduckgo.com/*"],
+            None,
+        ))
+        self.view = WebKit2.WebView.new_with_user_content_manager(ucm)
+        # attach persistent context via property-based construction when supported
+        try:
+            self.view = WebKit2.WebView(web_context=context, user_content_manager=ucm)
+        except TypeError:
+            self.view = WebKit2.WebView.new_with_context(context)
         settings = self.view.get_settings()
         settings.set_javascript_can_access_clipboard(False)
         settings.set_enable_smooth_scrolling(True)
