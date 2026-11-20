@@ -127,7 +127,7 @@ CSS = """
 #notch .wingdim {{ font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); }}
 #notch .song {{ font-size: 16px; font-weight: 700; color: #ffffff; }}
 #notch .m-artist {{ font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.52); }}
-#notch .time {{ font-family: "Geist Mono", "Ubuntu Mono", monospace; font-size: 11px; color: rgba(255,255,255,0.50); }}
+#notch .time {{ font-family: "{font}", "SF Pro Text", sans-serif; font-feature-settings: "tnum"; font-size: 11.5px; font-weight: 600; letter-spacing: 0.2px; color: rgba(255,255,255,0.60); }}
 #notch button.m-skip {{ background: transparent; padding: 4px 6px; border-radius: 10px; }}
 #notch button.m-skip image {{ color: rgba(255,255,255,0.46); }}
 #notch button.m-skip:hover {{ background: rgba(255,255,255,0.08); }}
