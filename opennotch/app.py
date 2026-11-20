@@ -406,7 +406,7 @@ class Equaliser(Gtk.DrawingArea):
     def __init__(self, rgb):
         super().__init__()
         self.rgb, self.phase, self._tick, self._last = rgb, 0.0, 0, 0.0
-        self.pixels = False
+        self.mode = "bars"  # "bars" | "pixels" | "dots"
         self._amps = [0.22, 0.22, 0.22, 0.22]
         self.set_size_request(20, 16)
         self.set_valign(Gtk.Align.CENTER)
@@ -450,9 +450,13 @@ class Equaliser(Gtk.DrawingArea):
             amp = self._amps[i] if self._tick else 0.22
             bh = max(3.2, 14.0 * amp)
             x = x0 + i * (bar_w + gap)
-            if self.pixels:
+            if self.mode == "pixels":
                 for j in range(max(1, round(4 * amp))):
                     cr.rectangle(x, 15.0 - (j + 1) * 3.4, 2.8, 2.6)
+                cr.fill()
+            elif self.mode == "dots":
+                r = 1.4 + 1.3 * amp
+                cr.arc(x + bar_w / 2.0, cy, r, 0, math.tau)
                 cr.fill()
             else:
                 y = cy - bh / 2.0
@@ -627,7 +631,8 @@ class WaveSeek(Gtk.DrawingArea):
         self.on_seek = on_seek
         self.reduce_motion = bool(reduce_motion)
         self.max, self.value, self.phase, self.drag = 1.0, 0.0, 0.0, False
-        self.comet = True
+        self.style = "pill"  # "pill" | "comet" | "wave"
+        self.accent_rgb = (1.0, 1.0, 1.0)
         self.unknown = False
         self.hovered = False
         self.hover_x = 0.0
@@ -766,36 +771,86 @@ class WaveSeek(Gtk.DrawingArea):
         w, h = self.get_allocated_width(), self.get_allocated_height()
         if w < 12:
             return
-        pad = 2.0
+        pad = 4.0 if self.style in ("comet", "wave") else 2.0
         span = w - 2 * pad
         ht = self.hover_t if (self.get_sensitive() and not self.unknown) else 0.0
-        bar_h = 4.0 + 3.5 * ht  # sleek 4 px Apple glass pill -> 7.5 px on hover/scrub
-        cy = h - 5.5
-        by = cy - bar_h / 2.0
-
-        # Translucent glass track
-        self._pill(cr, pad, by, span, bar_h)
-        cr.set_source_rgba(1, 1, 1, 0.14 + 0.08 * ht)
-        cr.fill()
-
+        ar, ag, ab = self.accent_rgb
         frac = 0.0 if self.unknown else max(0.0, min(1.0, self.value / self.max))
         fill_w = span * frac
+        x_now = pad + fill_w
+
+        if self.style == "comet":
+            bar_h = 3.0 + 2.2 * ht
+            cy = h - 6.0
+            by = cy - bar_h / 2.0
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.set_line_width(bar_h)
+            cr.set_source_rgba(1, 1, 1, 0.16 + 0.08 * ht)
+            cr.move_to(pad, cy)
+            cr.line_to(w - pad, cy)
+            cr.stroke()
+            if not self.unknown:
+                tail = cairo.LinearGradient(pad, 0, max(pad + 1.0, x_now), 0)
+                tail.add_color_stop_rgba(0.0, ar, ag, ab, 0.18)
+                tail.add_color_stop_rgba(1.0, ar, ag, ab, 0.98)
+                cr.set_source(tail)
+                cr.set_line_width(bar_h)
+                cr.move_to(pad, cy)
+                cr.line_to(x_now, cy)
+                cr.stroke()
+                glow_r = 6.5 + 2.0 * ht
+                glow = cairo.RadialGradient(x_now, cy, 0, x_now, cy, glow_r)
+                glow.add_color_stop_rgba(0.0, ar, ag, ab, 0.44)
+                glow.add_color_stop_rgba(1.0, ar, ag, ab, 0.0)
+                cr.set_source(glow)
+                cr.arc(x_now, cy, glow_r, 0, math.tau)
+                cr.fill()
+                cr.set_source_rgb(ar, ag, ab)
+                cr.arc(x_now, cy, 3.2 + 1.0 * ht, 0, math.tau)
+                cr.fill()
+        elif self.style == "wave":
+            bar_h = 2.6 + 1.4 * ht
+            cy = h - 6.5
+            by = cy - bar_h / 2.0
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.set_line_width(bar_h)
+            cr.set_source_rgba(1, 1, 1, 0.16 + 0.08 * ht)
+            cr.move_to(x_now if not self.unknown else pad, cy)
+            cr.line_to(w - pad, cy)
+            cr.stroke()
+            if not self.unknown and fill_w > 1.0:
+                cr.set_source_rgba(ar, ag, ab, 0.94)
+                cr.set_line_width(bar_h)
+                cr.move_to(pad, cy + 2.4 * math.sin(pad / 5.2 - self.phase))
+                x = pad + 1.5
+                while x <= x_now:
+                    cr.line_to(x, cy + 2.4 * math.sin(x / 5.2 - self.phase))
+                    x += 1.5
+                cr.stroke()
+                cr.set_source_rgb(ar, ag, ab)
+                cr.arc(x_now, cy + 2.4 * math.sin(x_now / 5.2 - self.phase), 3.2 + 0.9 * ht, 0, math.tau)
+                cr.fill()
+        else:
+            bar_h = 4.0 + 3.5 * ht  # sleek 4 px Apple glass pill -> 7.5 px on hover/scrub
+            cy = h - 5.5
+            by = cy - bar_h / 2.0
+            self._pill(cr, pad, by, span, bar_h)
+            cr.set_source_rgba(1, 1, 1, 0.14 + 0.08 * ht)
+            cr.fill()
+            if not self.unknown and fill_w > 0.5:
+                cr.save()
+                self._pill(cr, pad, by, span, bar_h)
+                cr.clip()
+                fill_grad = cairo.LinearGradient(pad, 0, pad + max(1.0, fill_w), 0)
+                fill_grad.add_color_stop_rgba(0.0, ar, ag, ab, 0.72 + 0.18 * ht)
+                fill_grad.add_color_stop_rgba(1.0, ar, ag, ab, 0.96 + 0.04 * ht)
+                self._pill(cr, pad, by, max(bar_h, fill_w), bar_h)
+                cr.set_source(fill_grad)
+                cr.fill()
+                cr.restore()
 
         if self.unknown:
             return
-
-        # Smooth rounded pill progress fill (clipped cleanly to the track pill)
-        if fill_w > 0.5:
-            cr.save()
-            self._pill(cr, pad, by, span, bar_h)
-            cr.clip()
-            fill_grad = cairo.LinearGradient(pad, 0, pad + max(1.0, fill_w), 0)
-            fill_grad.add_color_stop_rgba(0.0, 1, 1, 1, 0.72 + 0.18 * ht)
-            fill_grad.add_color_stop_rgba(1.0, 1, 1, 1, 0.96 + 0.04 * ht)
-            self._pill(cr, pad, by, max(bar_h, fill_w), bar_h)
-            cr.set_source(fill_grad)
-            cr.fill()
-            cr.restore()
 
         # Subtle hover scrub hairline + floating scrub-time pill tooltip
         if ht > 0.05 and self.get_sensitive():
@@ -1232,7 +1287,7 @@ class Notch(Gtk.Window):
         self.pill_art = ArtView(max(18, ph - 12), 6)
         a = self.accent
         self.pill_eq = Equaliser((a.red, a.green, a.blue))
-        self.pill_eq.pixels = self.cfg["visualizer"] == "pixels"
+        self.pill_eq.mode = self.cfg["visualizer"]
         center = Gtk.Box(spacing=6)
         self.pill_title = label("", "pilltext", chars=16)
         self.pill_title.set_no_show_all(True)
@@ -1429,7 +1484,7 @@ class Notch(Gtk.Window):
         # Top row: 64px art (with corner badge) + Title/Artist + borderless Prev / Play-Pause / Next
         top_row = Gtk.Box(spacing=14, valign=Gtk.Align.CENTER)
         top_row.set_margin_bottom(10)
-        self.art = ArtView(64, 14, show_badge=True)
+        self.art = ArtView(64, 14, show_badge=self.cfg["music_art_badge"])
         top_row.pack_start(self.art, False, False, 0)
 
         meta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3, valign=Gtk.Align.CENTER)
@@ -1450,17 +1505,35 @@ class Notch(Gtk.Window):
             transport.pack_start(b, False, False, 0)
         top_row.pack_end(transport, False, False, 0)
 
-        # Middle: full-width NotchPixel glowing comet scrub bar
+        # Middle: full-width customizable 60 fps scrub bar (glass pill | comet | wave)
         self.seek = WaveSeek(self._on_seek_value, reduce_motion=self.cfg["reduce_motion"])
-        self.seek.comet = self.cfg["progress"] == "comet"
+        self.seek.style = self.cfg["progress"]
+        self.seek.accent_rgb = (self.accent.red, self.accent.green, self.accent.blue)
 
-        # Bottom row: elapsed left, -remaining right (clean NotchPixel spacing, no clutter)
+        # Bottom row: elapsed left, optional volume slider center, -remaining (+ optional lyrics) right
         foot = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
         foot.set_margin_top(2)
         self.m_pos = label("0:00", "time", ellipsize=False)
         self.m_len = label("-0:00", "time", ellipsize=False, xalign=1)
         foot.pack_start(self.m_pos, False, False, 0)
-        foot.pack_end(self.m_len, False, False, 0)
+        if self.cfg["music_volume"]:
+            vol_box = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+            vol_icon = Gtk.Image.new_from_icon_name("audio-volume-medium-symbolic", Gtk.IconSize.MENU)
+            self.m_vol = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 2)
+            self.m_vol.set_draw_value(False)
+            self.m_vol.set_can_focus(False)
+            self.m_vol.set_size_request(110, -1)
+            self.m_vol.connect("change-value", self._on_volume)
+            vol_box.pack_start(vol_icon, False, False, 0)
+            vol_box.pack_start(self.m_vol, False, False, 0)
+            foot.set_center_widget(vol_box)
+        right_foot = Gtk.Box(spacing=6, valign=Gtk.Align.CENTER)
+        right_foot.pack_start(self.m_len, False, False, 0)
+        if self.cfg["lyrics"]:
+            lyr = icon_button("format-justify-left-symbolic", "Synced lyrics", lambda: self._show_lyrics(True),
+                              size=Gtk.IconSize.MENU)
+            right_foot.pack_start(lyr, False, False, 0)
+        foot.pack_end(right_foot, False, False, 0)
 
         for w in (top_row, self.seek, foot):
             player.pack_start(w, False, False, 0)

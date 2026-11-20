@@ -39,7 +39,9 @@ DEFAULTS = {
     "surface": "glass",        # black | glass (user: black pill, liquid-glass card)
     "resting": "empty",        # what the closed pill shows when nothing is going on
     "pet": "cat",
-    "progress": "comet",       # comet | wave
+    "progress": "comet",       # pill | comet | wave
+    "music_volume": False,
+    "music_art_badge": True,
     "clipboard_layout": "cards",
     "clipboard_size": 12,
     "clipboard_hours": 10,
@@ -166,16 +168,16 @@ DEFAULTS = {
     "key_output": "<Ctrl><Alt>O",
     "key_chat_drawer": "<Ctrl><Alt><Shift>C",
 }
-CHOICES = {"language": ("auto", "en", "el"), "alt_tab_style": ("ring", "fan", "flip"), "surface": ("black", "glass"), "resting": ("empty", "clock", "pet"), "pet": ("cat", "dog", "bunny"), "progress": ("comet", "wave"),
+CHOICES = {"language": ("auto", "en", "el"), "alt_tab_style": ("ring", "fan", "flip"), "surface": ("black", "glass"), "resting": ("empty", "clock", "pet"), "pet": ("cat", "dog", "bunny"), "progress": ("pill", "comet", "wave"),
            "shape": ("notch", "island"), "position": ("left", "center", "right", "left_side", "right_side"),
-           "clipboard_layout": ("cards", "list"), "motion": ("fluid", "balanced", "battery"), "open_on": ("last", "music"), "visualizer": ("pixels", "bars"),
+           "clipboard_layout": ("cards", "list"), "motion": ("fluid", "balanced", "battery"), "open_on": ("last", "music"), "visualizer": ("bars", "pixels", "dots"),
            "font": ("Nunito", "Geist", "Inter", "Roboto", "Noto Sans", "Ubuntu", "SF Pro Text"),
            "music_background": ("album", "black"), "anim_speed": ("relaxed", "normal", "quick"),
            "media_source_mode": ("all", "allow", "ignore"),
            "time_format": ("system", "24h", "12h"),
            "day_clock_color": ("auto", "white", "black"),
            "reminder_sound": ("once", "repeat", "off")}
-BOOLS = ("lyrics", "volume_popups", "ask_claude", "desktop_widgets", "reverse_scroll", "show_volume_hud",
+BOOLS = ("lyrics", "music_volume", "music_art_badge", "volume_popups", "ask_claude", "desktop_widgets", "reverse_scroll", "show_volume_hud",
          "show_brightness_hud", "show_battery_hud", "show_battery_estimate", "show_mic_hud", "title_in_pill",
          "record_pc_sound", "game_strip_everywhere", "overlay_cpu", "overlay_gpu", "overlay_ram",
          "overlay_network", "overlay_upload", "overlay_clock", "network_in_bits", "chat_popups",

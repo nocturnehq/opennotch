@@ -88,7 +88,7 @@ SECTIONS = [
             C("motion", "Motion", "Fluid moves at the screen's full refresh rate; Battery saver keeps it under 60 "
               "frames a second.", [("fluid", "Fluid"), ("balanced", "Balanced"), ("battery", "Battery saver")]),
             C("visualizer", "Visualizer", "What plays beside the artwork on the pill while music plays.",
-              [("pixels", "Pixels"), ("bars", "Bars")]),
+              [("bars", "Bars"), ("pixels", "Pixels"), ("dots", "Dots")]),
             C("font", "Font", "The letters the island, the taskbar and this window write in.",
               [("Nunito", "Nunito"), ("Geist", "Geist"), ("Inter", "Inter"), ("Roboto", "Roboto"), ("Noto Sans", "Noto Sans"),
                ("Ubuntu", "Ubuntu"), ("SF Pro Text", "SF Pro")]),
@@ -98,7 +98,10 @@ SECTIONS = [
             dict(key="accent", title="Accent", desc="Colours the visualizer, progress and level bars.", kind="color"),
             C("music_background", "Music background", "The music card takes the artwork's colours, or stays black.",
               [("album", "Album"), ("black", "Black")]),
-            C("progress", "Progress bar", "How the song's progress is drawn.", [("comet", "Comet"), ("wave", "Wave")]),
+            C("progress", "Progress bar", "How the song's progress is drawn.",
+              [("pill", "Glass"), ("comet", "Comet"), ("wave", "Wave")]),
+            T("music_volume", "Music bar volume slider", "Show a compact volume slider between the timestamps on the music bar."),
+            T("music_art_badge", "Artwork corner badge", "Show the small circular play badge on the album artwork."),
         ]),
     ]),
     ("Island", "view-app-grid-symbolic", [
