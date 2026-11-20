@@ -2150,10 +2150,39 @@ class Notch(Gtk.Window):
         GLib.timeout_add(int(ANIM_SECONDS * 1000) + 60, self._next_toast)
         return False
 
-    def _want_keyboard(self, _w, ev):
-        # only the search box needs typing: take focus on click, give it back when the card closes
+    def _want_keyboard(self, widget, ev):
+        # only entries/textviews/webview need typing: take focus on click, give it back when the card closes
         self.set_accept_focus(True)
-        self.get_window().focus(ev.time)
+        gdk_w = self.get_window()
+        if gdk_w is None:
+            return False
+        self.get_display().sync()
+        stamp = getattr(ev, "time", 0) or 0
+        try:
+            gi.require_version("GdkX11", "3.0")
+            from gi.repository import GdkX11
+            if not stamp:
+                stamp = GdkX11.x11_get_server_time(gdk_w)
+            self.present_with_time(stamp)
+            gdk_w.focus(stamp)
+            from Xlib import X, display as xdisplay
+            from Xlib.protocol import event as xevent
+            d = xdisplay.Display(self.get_display().get_name())
+            try:
+                xid = GdkX11.X11Window.get_xid(gdk_w)
+                msg = xevent.ClientMessage(
+                    window=d.create_resource_object("window", xid),
+                    client_type=d.intern_atom("_NET_ACTIVE_WINDOW"),
+                    data=(32, [2, stamp, 0, 0, 0]),
+                )
+                d.screen().root.send_event(msg, event_mask=X.SubstructureRedirectMask | X.SubstructureNotifyMask)
+                d.sync()
+            finally:
+                d.close()
+        except Exception:
+            gdk_w.focus(stamp)
+        if hasattr(widget, "grab_focus"):
+            GLib.idle_add(lambda: (widget.grab_focus(), False)[1])
         return False
 
     def _on_card_opened(self):
