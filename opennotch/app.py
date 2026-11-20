@@ -46,7 +46,7 @@ ICON_GLYPHS = {"ok": "✓", "fail": "✕", "info": "i"}
 TAB_TITLES = {"music": "Music", "web": "Web", "overview": "Overview", "controls": "Controls", "clipboard": "Clipboard",
               "shelf": "Shelf", "notifications": "Notifications", "launcher": "Launcher", "camera": "Camera", "claude": "Ask Claude"}
 # each tab gets a card sized to its content, so there is no dead space; the card morphs between them
-TAB_SIZES = {"music": (480, 152), "web": (670, 430), "overview": (560, 250), "controls": (580, 282), "clipboard": (400, 196),
+TAB_SIZES = {"music": (440, 148), "web": (670, 430), "overview": (560, 250), "controls": (580, 282), "clipboard": (400, 196),
              "shelf": (480, 150), "notifications": (480, 150), "launcher": (520, 210), "camera": (380, 236), "claude": (520, 230)}
 TAB_ICONS = {"music": "audio-x-generic-symbolic", "web": "web-browser-symbolic", "overview": "x-office-calendar-symbolic",
              "controls": "multimedia-equalizer-symbolic", "clipboard": "edit-paste-symbolic",
@@ -125,7 +125,16 @@ CSS = """
 #notch button.tabicon.active {{ background-color: transparent; background-image: radial-gradient(circle at 50% 92%, #ffffff 1.6px, transparent 2.2px); }}
 #notch .wing {{ font-size: 12px; font-weight: 700; }}
 #notch .wingdim {{ font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); }}
-#notch .song {{ font-size: 18px; font-weight: 800; }}
+#notch .song {{ font-size: 16px; font-weight: 700; color: #ffffff; }}
+#notch .m-artist {{ font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.52); }}
+#notch .time {{ font-family: "Geist Mono", "Ubuntu Mono", monospace; font-size: 11px; color: rgba(255,255,255,0.50); }}
+#notch button.m-skip {{ background: transparent; padding: 4px 6px; border-radius: 10px; }}
+#notch button.m-skip image {{ color: rgba(255,255,255,0.46); }}
+#notch button.m-skip:hover {{ background: rgba(255,255,255,0.08); }}
+#notch button.m-skip:hover image {{ color: #ffffff; }}
+#notch button.m-play {{ background: transparent; padding: 4px 6px; border-radius: 12px; }}
+#notch button.m-play image {{ color: #ffffff; }}
+#notch button.m-play:hover {{ background: rgba(255,255,255,0.09); }}
 #notch .bigtime {{ font-size: 34px; font-weight: 300; }}
 #notch .temp {{ font-size: 28px; font-weight: 300; }}
 #notch .lyric {{ color: rgba(255,255,255,0.38); font-size: 13px; font-weight: 600; }}
@@ -319,11 +328,13 @@ def label(text="", css=None, xalign=0.0, ellipsize=True, chars=None):
 
 
 class ArtView(Gtk.DrawingArea):
-    """Album art (or a soft placeholder) clipped to a rounded square."""
+    """Album art (or a soft placeholder) clipped to a rounded square, with optional NotchPixel player badge."""
 
-    def __init__(self, size, radius):
+    def __init__(self, size, radius, show_badge=False):
         super().__init__()
         self.size, self.radius, self.pixbuf = size, radius, None
+        self.show_badge = show_badge
+        self.active = False
         self.set_size_request(size, size)
         self.set_valign(Gtk.Align.CENTER)
         self.connect("draw", self._draw)
@@ -331,6 +342,11 @@ class ArtView(Gtk.DrawingArea):
     def set_pixbuf(self, pb):
         self.pixbuf = pb
         self.queue_draw()
+
+    def set_active(self, active):
+        if self.active != bool(active):
+            self.active = bool(active)
+            self.queue_draw()
 
     def _draw(self, _w, cr):
         s, r = self.size, self.radius
@@ -352,25 +368,8 @@ class ArtView(Gtk.DrawingArea):
             cr.paint()
             cr.restore()
         else:
-            g = cairo.LinearGradient(0, 0, s, s)
-            g.add_color_stop_rgb(0, 0.14, 0.14, 0.16)
-            g.add_color_stop_rgb(1, 0.06, 0.06, 0.08)
-            cr.set_source(g)
+            cr.set_source_rgb(0.16, 0.16, 0.17)
             cr.paint()
-            if s >= 40:
-                cr.set_source_rgba(1, 1, 1, 0.28)
-                cx, cy, u = s * 0.5, s * 0.52, s * 0.16
-                cr.set_line_width(max(1.6, s * 0.032))
-                cr.set_line_cap(cairo.LINE_CAP_ROUND)
-                cr.set_line_join(cairo.LINE_JOIN_ROUND)
-                cr.move_to(cx - u * 0.45, cy + u * 0.55)
-                cr.line_to(cx - u * 0.45, cy - u * 0.75)
-                cr.line_to(cx + u * 0.95, cy - u * 1.05)
-                cr.line_to(cx + u * 0.95, cy + u * 0.30)
-                cr.stroke()
-                for nx, ny in ((cx - u * 0.78, cy + u * 0.65), (cx + u * 0.62, cy + u * 0.40)):
-                    cr.arc(nx, ny, max(2.4, u * 0.36), 0, math.tau)
-                    cr.fill()
         cr.restore()
         cr.new_path()
         cr.arc(r, r, r, math.pi, 1.5 * math.pi)
@@ -378,9 +377,27 @@ class ArtView(Gtk.DrawingArea):
         cr.arc(s - r, s - r, r, 0, 0.5 * math.pi)
         cr.arc(r, s - r, r, 0.5 * math.pi, math.pi)
         cr.close_path()
-        cr.set_source_rgba(1, 1, 1, 0.14)
+        cr.set_source_rgba(1, 1, 1, 0.08)
         cr.set_line_width(1)
         cr.stroke()
+        if self.show_badge and self.active and s >= 48:
+            bx, by, br = s - 10.0, s - 10.0, 9.0
+            cr.set_source_rgb(0.06, 0.06, 0.07)
+            cr.arc(bx, by, br + 1.5, 0, math.tau)
+            cr.fill()
+            cr.set_source_rgb(0.14, 0.14, 0.16)
+            cr.arc(bx, by, br, 0, math.tau)
+            cr.fill()
+            cr.set_source_rgba(1, 1, 1, 0.28)
+            cr.set_line_width(1.1)
+            cr.arc(bx, by, br - 1.5, 0, math.tau)
+            cr.stroke()
+            cr.set_source_rgba(1, 1, 1, 0.92)
+            cr.move_to(bx - 2.2, by - 3.2)
+            cr.line_to(bx + 3.4, by)
+            cr.line_to(bx - 2.2, by + 3.2)
+            cr.close_path()
+            cr.fill()
 
 
 class Equaliser(Gtk.DrawingArea):
@@ -433,7 +450,7 @@ class WaveSeek(Gtk.DrawingArea):
         self.hover_t = 0.0
         self._hover_tick = 0
         self._hover_last = 0.0
-        self.set_size_request(-1, 24)
+        self.set_size_request(-1, 18)
         self.add_events(
             Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK |
             Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.ENTER_NOTIFY_MASK |
@@ -558,14 +575,14 @@ class WaveSeek(Gtk.DrawingArea):
         pad = 4.0
         span = w - 2 * pad
         ht = self.hover_t if (self.get_sensitive() and not self.unknown) else 0.0
-        bar_h = 2.5 + 2.5 * ht  # NotchPixel sleek 2.5 px comet bar -> 5 px on hover
-        cy = h - 6.0
+        bar_h = 2.8 + 2.2 * ht  # NotchPixel sleek 2.8 px comet bar -> 5 px on hover
+        cy = h / 2.0
         by = cy - bar_h / 2.0
 
         # Subtle full-width track
         cr.set_line_cap(cairo.LINE_CAP_ROUND)
         cr.set_line_width(bar_h)
-        cr.set_source_rgba(1, 1, 1, 0.20 + 0.08 * ht)
+        cr.set_source_rgba(1, 1, 1, 0.18 + 0.08 * ht)
         cr.move_to(pad, cy)
         cr.line_to(w - pad, cy)
         cr.stroke()
@@ -582,22 +599,22 @@ class WaveSeek(Gtk.DrawingArea):
         if self.comet:
             # NotchPixel comet: fading luminous tail into a crisp glowing white playhead dot
             tail = cairo.LinearGradient(pad, 0, max(pad + 1.0, x_now), 0)
-            tail.add_color_stop_rgba(0, 1, 1, 1, 0.12)
-            tail.add_color_stop_rgba(1, 1, 1, 1, 0.96)
+            tail.add_color_stop_rgba(0, 1, 1, 1, 0.22)
+            tail.add_color_stop_rgba(1, 1, 1, 1, 0.98)
             cr.set_source(tail)
             cr.set_line_width(bar_h)
             cr.move_to(pad, cy)
             cr.line_to(x_now, cy)
             cr.stroke()
-            glow_r = 7.5 + 2.0 * ht
+            glow_r = 9.0 + 2.0 * ht
             glow = cairo.RadialGradient(x_now, cy, 0, x_now, cy, glow_r)
-            glow.add_color_stop_rgba(0, 1, 1, 1, 0.55)
+            glow.add_color_stop_rgba(0, 1, 1, 1, 0.60)
             glow.add_color_stop_rgba(1, 1, 1, 1, 0.0)
             cr.set_source(glow)
             cr.arc(x_now, cy, glow_r, 0, math.tau)
             cr.fill()
             cr.set_source_rgb(1, 1, 1)
-            cr.arc(x_now, cy, 3.4 + 1.1 * ht, 0, math.tau)
+            cr.arc(x_now, cy, 3.7 + 1.0 * ht, 0, math.tau)
             cr.fill()
         else:
             cr.set_line_width(bar_h)
@@ -1243,70 +1260,68 @@ class Notch(Gtk.Window):
         if hasattr(self, "W"):
             self._grow_window_for(w, h)
 
-    # ---- Music (NotchPixel 1-to-1 layout: art + meta + inline transport -> comet bar -> elapsed | volume | remaining)
+    # ---- Music (NotchPixel 1-to-1 layout: art + meta + big borderless transport -> comet bar -> elapsed / -remaining)
     def _build_music(self):
         self.music_stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=160)
-        player = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER)
+        player = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0, valign=Gtk.Align.CENTER)
 
-        # Top row: 64px art + Title/Artist + inline Prev / Play-Pause / Next
-        top_row = Gtk.Box(spacing=12, valign=Gtk.Align.CENTER)
-        self.art = ArtView(64, 14)
+        # Top row: 64px art (with corner badge) + Title/Artist + borderless Prev / Play-Pause / Next
+        top_row = Gtk.Box(spacing=14, valign=Gtk.Align.CENTER)
+        top_row.set_margin_bottom(10)
+        self.art = ArtView(64, 14, show_badge=True)
         top_row.pack_start(self.art, False, False, 0)
-        meta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER)
-        self.m_title = label("Nothing playing", "song", chars=22)
-        self.m_artist = label("Start a player to see it here", "dim", chars=26)
-        self.m_album = label("", "dim", chars=26)
+
+        meta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3, valign=Gtk.Align.CENTER)
+        self.m_title = label("Nothing playing", "song", chars=20)
+        self.m_artist = label("Start a player to see it here", "m-artist", chars=24)
+        self.m_album = label("", "dim", chars=24)
         self.m_album.set_no_show_all(True)
         for w in (self.m_title, self.m_artist, self.m_album):
             meta.pack_start(w, False, False, 0)
         top_row.pack_start(meta, True, True, 0)
 
-        # Inline transport right of title/artist (clean NotchPixel white icons, no bulky blob)
-        transport = Gtk.Box(spacing=6, valign=Gtk.Align.CENTER)
-        self.b_play = icon_button("media-playback-start-symbolic", "Play / pause",
-                                  lambda: self.mpris and self.mpris.call("PlayPause"),
-                                  size=Gtk.IconSize.LARGE_TOOLBAR)
-        self.b_play.get_style_context().add_class("transport")
-        for icon, tip, method in (("media-skip-backward-symbolic", "Previous", "Previous"), (None, None, None),
-                                  ("media-skip-forward-symbolic", "Next", "Next")):
+        # Inline transport right of title/artist: muted ◀◀, large pure-white ▶ / ❚❚, muted ▶▶
+        transport = Gtk.Box(spacing=14, valign=Gtk.Align.CENTER)
+        play_img = Gtk.Image.new_from_icon_name("media-playback-start-symbolic", Gtk.IconSize.DIALOG)
+        play_img.set_pixel_size(30)
+        self.b_play = Gtk.Button()
+        self.b_play.set_image(play_img)
+        self.b_play.set_tooltip_text("Play / pause")
+        self.b_play.set_relief(Gtk.ReliefStyle.NONE)
+        self.b_play.set_can_focus(False)
+        self.b_play.get_style_context().add_class("m-play")
+        self.b_play.connect("clicked", lambda *_: self.mpris and self.mpris.call("PlayPause"))
+
+        for icon, tip, method in (("media-seek-backward-symbolic", "Previous", "Previous"),
+                                  (None, None, None),
+                                  ("media-seek-forward-symbolic", "Next", "Next")):
             if icon is None:
                 transport.pack_start(self.b_play, False, False, 0)
                 continue
-            b = icon_button(icon, tip, lambda m=method: self.mpris and self.mpris.call(m), size=Gtk.IconSize.BUTTON)
-            b.get_style_context().add_class("transport")
+            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.LARGE_TOOLBAR)
+            img.set_pixel_size(20)
+            b = Gtk.Button()
+            b.set_image(img)
+            b.set_tooltip_text(tip)
+            b.set_relief(Gtk.ReliefStyle.NONE)
+            b.set_can_focus(False)
+            b.get_style_context().add_class("m-skip")
             b.set_valign(Gtk.Align.CENTER)
+            b.connect("clicked", lambda *_, m=method: self.mpris and self.mpris.call(m))
             transport.pack_start(b, False, False, 0)
         top_row.pack_end(transport, False, False, 0)
 
-        # Middle: full-width NotchPixel comet/wave scrub bar
+        # Middle: full-width NotchPixel glowing comet scrub bar
         self.seek = WaveSeek(self._on_seek_value, reduce_motion=self.cfg["reduce_motion"])
         self.seek.comet = self.cfg["progress"] == "comet"
 
-        # Bottom row: elapsed left | inline volume slider center | remaining + lyrics right
+        # Bottom row: elapsed left, -remaining right (clean NotchPixel spacing, no clutter)
         foot = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
+        foot.set_margin_top(2)
         self.m_pos = label("0:00", "time", ellipsize=False)
-        self.m_len = label("0:00", "time", ellipsize=False, xalign=1)
+        self.m_len = label("-0:00", "time", ellipsize=False, xalign=1)
         foot.pack_start(self.m_pos, False, False, 0)
-
-        vol_box = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
-        vol_icon = Gtk.Image.new_from_icon_name("audio-volume-medium-symbolic", Gtk.IconSize.MENU)
-        self.m_vol = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 2)
-        self.m_vol.set_draw_value(False)
-        self.m_vol.set_can_focus(False)
-        self.m_vol.set_size_request(130, -1)
-        self.m_vol.connect("change-value", self._on_volume)
-        vol_box.pack_start(vol_icon, False, False, 0)
-        vol_box.pack_start(self.m_vol, False, False, 0)
-        foot.set_center_widget(vol_box)
-
-        right_foot = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
-        right_foot.pack_start(self.m_len, False, False, 0)
-        if self.cfg["lyrics"]:
-            lyr = icon_button("format-justify-left-symbolic", "Synced lyrics", lambda: self._show_lyrics(True),
-                              size=Gtk.IconSize.MENU)
-            lyr.get_style_context().add_class("transport")
-            right_foot.pack_start(lyr, False, False, 0)
-        foot.pack_end(right_foot, False, False, 0)
+        foot.pack_end(self.m_len, False, False, 0)
 
         for w in (top_row, self.seek, foot):
             player.pack_start(w, False, False, 0)
@@ -2322,26 +2337,35 @@ class Notch(Gtk.Window):
             return False
         if info:
             self.m_title.set_text(info["title"])
-            self.m_artist.set_text(info["artist"] or "Unknown artist")
-            self.m_album.set_text(info["album"])
+            self.m_artist.set_text(info["artist"] or "")
+            self.m_artist.set_visible(bool(info["artist"]))
+            self.m_album.set_text("")
+            self.m_album.set_visible(False)
+            self.art.set_active(True)
             key = (info["title"], info["artist"], info["length"])
             if key != getattr(self, "track_key", None):  # a new track starts at 0, not where the last one was
                 self.track_key = key
                 self.position_est = (0, time.monotonic())
                 self.seek.set_value(0)
             self.seek.set_range(0, info["length"] / 1e6)
-            self.m_album.set_visible(bool(info["album"]))
-            self.m_len.set_text(fmt_time(info["length"] / 1e6) if info["length"] else ("LIVE" if playing else "–"))
+            self.m_len.set_text("-" + fmt_time(info["length"] / 1e6) if info["length"] else ("LIVE" if playing else "-0:00"))
             self.seek.set_sensitive(bool(info["length"]))
         else:
             self.m_title.set_text("Nothing playing")
             self.m_artist.set_text("Start a player to see it here")
+            self.m_artist.set_visible(True)
             self.m_album.set_text("")
+            self.m_album.set_visible(False)
+            self.art.set_active(False)
             self.seek.set_sensitive(False)
             self.seek.set_range(0, 0)
-        self.b_play.set_image(Gtk.Image.new_from_icon_name(
+            self.m_pos.set_text("0:00")
+            self.m_len.set_text("-0:00")
+        play_img = Gtk.Image.new_from_icon_name(
             "media-playback-pause-symbolic" if playing else "media-playback-start-symbolic",
-            Gtk.IconSize.LARGE_TOOLBAR))
+            Gtk.IconSize.DIALOG)
+        play_img.set_pixel_size(30)
+        self.b_play.set_image(play_img)
         self._load_art(info["art"] if info else "")
         if self.music_stack.get_visible_child_name() == "lyrics":
             self._load_lyrics()
