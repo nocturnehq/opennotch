@@ -108,8 +108,9 @@ def island_css(font):
 #notch levelbar block.filled, #notch levelbar block.filled.low, #notch levelbar block.filled.high,
 #notch levelbar block.filled.full {{ background: {gold}; border: none; }}
 #notch levelbar block:not(.empty) {{ background-color: {gold}; background-image: none; border: none; box-shadow: none; }}
-#notch entry {{ background: {fill}; border: 1px solid {hair}; transition: border-color {fast} {ease}; }}
-#notch entry:focus {{ border-color: {gold}; }}
+#notch entry {{ background: {fill}; border: 1px solid {hair}; box-shadow: none; outline: none; transition: border-color {fast} {ease}; }}
+#notch entry:focus {{ border-color: rgba(255,255,255,0.45); box-shadow: none; outline: none; }}
+#notch entry selection, #notch entry selection:focus, #notch textview text selection, #notch textview text selection:focus {{ background-color: rgba(255,255,255,0.28); color: #ffffff; }}
 #notch .today {{ background: transparent; border: 1px solid {gold}; }}
 #notch calendar:selected {{ background: {text}; color: #0b0b0c; }}
 #notch .toasticon {{ border-radius: 99px; }}
@@ -159,8 +160,9 @@ def settings_css(font="Geist"):
 #glass row.side {{ border: 1px solid transparent; transition: background-color {slow} {ease}, border-color {slow} {ease}; }}
 #glass row.side:hover {{ background: {fill}; }}
 #glass row.side:selected {{ background: {fill}; border-color: {hair2}; }}
-#glass entry {{ background: {fill}; border: 1px solid {hair}; transition: border-color {fast} {ease}; }}
-#glass entry:focus {{ border-color: {gold}; }}
+#glass entry {{ background: {fill}; border: 1px solid {hair}; box-shadow: none; outline: none; transition: border-color {fast} {ease}; }}
+#glass entry:focus {{ border-color: rgba(255,255,255,0.45); box-shadow: none; outline: none; }}
+#glass entry selection, #glass entry selection:focus {{ background-color: rgba(255,255,255,0.28); color: #ffffff; }}
 #glass button {{ background: transparent; border: 1px solid {hair}; transition: background-color {fast} {ease}, border-color {fast} {ease}; }}
 #glass button:hover {{ background: {fill}; border-color: {hair2}; }}
 #glass .segbar {{ background: transparent; border: 1px solid {hair}; }}
