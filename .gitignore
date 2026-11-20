@@ -1,4 +1,18 @@
 __pycache__/
 *.py[cod]
-*.swp
-*~
+*.egg-info/
+.venv/
+venv/
+HANDOFF*.md
+tasks/
+
+# Windows PyInstaller / Inno Setup build outputs
+windows/build/
+windows/dist/
+windows/*.spec
+
+# Arch makepkg build outputs
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.pkg.tar.*
+packaging/arch/opennotch/

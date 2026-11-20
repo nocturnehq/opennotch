@@ -1,0 +1,66 @@
+name: CI & Cross-Platform Builds
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  linux-test:
+    name: Linux (Ubuntu) Selftest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GTK 3 & PyGObject
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi python3-gi-cairo python3-xlib gir1.2-gtk-3.0 xvfb
+      - name: Run OpenNotch selftest
+        run: xvfb-run -a python3 -m opennotch.selftest
+
+  arch-package:
+    name: Arch Linux Package (PKGBUILD)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Arch package with makepkg
+        run: |
+          pacman -Syu --noconfirm git python
+          useradd -m builder
+          chown -R builder:builder .
+          su - builder -c "cd '$PWD/packaging/arch' && makepkg --noconfirm --nodeps"
+      - name: Upload Arch package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenNotch-Arch-Package
+          path: packaging/arch/*.pkg.tar.*
+
+  windows-build:
+    name: Windows 10/11 Standalone .exe
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Windows dependencies
+        working-directory: windows
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run Windows self-test
+        working-directory: windows
+        run: python selftest_win.py
+      - name: Build OpenNotch.exe
+        working-directory: windows
+        run: python build_exe.py
+      - name: Upload OpenNotch.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenNotch-Windows-x64
+          path: windows/dist/OpenNotch.exe

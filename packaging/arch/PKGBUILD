@@ -1,4 +1,4 @@
-# Maintainer: Panos <panos@opennotch.local>
+# Maintainer: OpenNotch Contributors
 pkgname=opennotch-git
 pkgver=0.1.0.r0
 pkgrel=1
