@@ -347,8 +347,10 @@ def build_calc_widget(want_keyboard, on_copy):
     entry.connect("button-press-event", want_keyboard)
     ans_btn = Gtk.Button()
     ans_btn.set_can_focus(False)
+    ans_btn.set_halign(Gtk.Align.START)
+    ans_btn.set_relief(Gtk.ReliefStyle.NONE)
     ans_btn.get_style_context().add_class("flat")
-    ans_lbl = _lbl("–", "bignum", ellipsize=False)
+    ans_lbl = _lbl("–", "bignum", xalign=0.0, ellipsize=False)
     ans_btn.add(ans_lbl)
     ans_btn.set_tooltip_text("Click to copy result")
     state = {"val": None}

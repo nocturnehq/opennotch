@@ -49,7 +49,7 @@ TAB_TITLES = {"music": "Music", "web": "Web", "overview": "Overview", "controls"
 TAB_SIZES = {"music": (540, 196), "web": (670, 430), "overview": (560, 250), "controls": (580, 282), "clipboard": (400, 196),
              "shelf": (480, 150), "notifications": (480, 150), "launcher": (520, 210), "camera": (380, 236), "claude": (520, 230)}
 TAB_ICONS = {"music": "audio-x-generic-symbolic", "web": "web-browser-symbolic", "overview": "x-office-calendar-symbolic",
-             "controls": "emblem-system-symbolic", "clipboard": "edit-paste-symbolic",
+             "controls": "multimedia-equalizer-symbolic", "clipboard": "edit-paste-symbolic",
              "shelf": "folder-symbolic", "notifications": "preferences-system-notifications-symbolic",
              "launcher": "view-grid-symbolic", "camera": "camera-web-symbolic",
              "claude": "user-available-symbolic"}
@@ -150,10 +150,10 @@ CSS = """
 #notch calendar:indeterminate {{ color: rgba(255,255,255,0.25); }}
 #notch entry.ask {{ padding: 8px 12px; border-radius: 14px; font-size: 13px; }}
 #notch .answer {{ font-size: 13px; }}
-#notch .badge {{ background: #ff453a; color: #ffffff; border-radius: 9px; padding: 1px 6px; font-size: 10px; font-weight: 800; }}
+#notch .badge {{ background: #ffffff; color: #0b0b0c; border-radius: 9px; padding: 1px 6px; font-size: 10px; font-weight: 700; }}
 #notch .toasticon {{ border-radius: 13px; min-width: 26px; min-height: 26px; font-weight: 800; font-size: 14px; }}
 #notch .toasticon.ok {{ background: #32d74b; color: #08200d; }}
-#notch .toasticon.fail {{ background: #ff453a; }}
+#notch .toasticon.fail {{ background: #e5484d; }}
 #notch .toasticon.info {{ background: {accent}; }}
 """
 
@@ -1262,6 +1262,7 @@ class Notch(Gtk.Window):
         self.card_eq = Equaliser((1.0, 1.0, 1.0))
         self.card_eq.pixels = self.cfg["visualizer"] == "pixels"
         self.card_eq.set_valign(Gtk.Align.CENTER)
+        self.card_eq.set_no_show_all(True)
         head_row.pack_end(self.card_eq, False, False, 4)
 
         # Full-width Apple-style liquid-glass scrub bar + tabular time labels
@@ -1534,9 +1535,11 @@ class Notch(Gtk.Window):
             cr.set_source_rgb(1, 1, 1)
             cr.arc(c, c, r, -math.pi / 2, -math.pi / 2 + 2 * math.pi * frac)
             cr.stroke()
-        layout = w.create_pango_layout(fmt_time(p["left"]))
+        txt = fmt_time(p["left"])
+        layout = w.create_pango_layout(txt)
         from gi.repository import Pango
-        layout.set_font_description(Pango.FontDescription.from_string("Geist Medium 11"))
+        pt = 9.5 if len(txt) >= 6 else 11
+        layout.set_font_description(Pango.FontDescription.from_string(f"SF Pro Text Semibold {pt}"))
         tw, th = layout.get_pixel_size()
         cr.move_to(c - tw / 2, c - th / 2)
         cr.set_source_rgb(0.96, 0.96, 0.97)
@@ -3363,7 +3366,7 @@ class Notch(Gtk.Window):
             card.pack_start(icon, False, False, 0)
             texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             top = Gtk.Box(spacing=8)
-            top.pack_start(label(n["app"].upper(), "apptag"), True, True, 0)
+            top.pack_start(label(n["app"], "apptag"), True, True, 0)
             when = time.strftime("%H:%M", time.localtime(n["time"])) if self.cfg["notice_clock_time"] else ago(n["time"])
             top.pack_end(label(when, "apptag", ellipsize=False), False, False, 0)
             texts.pack_start(top, False, False, 0)

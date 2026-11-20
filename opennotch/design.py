@@ -101,8 +101,9 @@ def island_css(font):
 #notch row:hover {{ background: {fill}; }}
 #notch scale trough {{ background: {hair2}; min-height: 3px; }}
 #notch scale highlight {{ background: {text}; }}
-#notch scale.big trough {{ background: {fill}; border: 1px solid {hair}; }}
-#notch scale.big highlight {{ background: {text}; }}
+#notch scale.big trough {{ background: {fill}; border: 1px solid {hair}; border-radius: 14px; padding: 0; }}
+#notch scale.big highlight {{ background: {text}; border-radius: 12px; min-height: 0; border: none; margin: 0; }}
+#notch scale.big slider {{ background: transparent; min-width: 0; min-height: 0; margin: 0; padding: 0; box-shadow: none; border: none; }}
 #notch levelbar trough {{ background: {hair}; min-height: 3px; }}
 #notch levelbar block.filled, #notch levelbar block.filled.low, #notch levelbar block.filled.high,
 #notch levelbar block.filled.full {{ background: {gold}; border: none; }}
