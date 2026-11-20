@@ -401,14 +401,14 @@ class ArtView(Gtk.DrawingArea):
 
 
 class Equaliser(Gtk.DrawingArea):
-    """60 fps fluid Dynamic-Island-style audio wave (centered pill-rounded bars)."""
+    """60 fps fluid Dynamic-Island-style audio wave (bars | pixels | dots)."""
 
     def __init__(self, rgb):
         super().__init__()
         self.rgb, self.phase, self._tick, self._last = rgb, 0.0, 0, 0.0
         self.mode = "bars"  # "bars" | "pixels" | "dots"
-        self._amps = [0.22, 0.22, 0.22, 0.22]
-        self.set_size_request(20, 16)
+        self._amps = [0.22, 0.22, 0.22, 0.22, 0.22]
+        self.set_size_request(24, 16)
         self.set_valign(Gtk.Align.CENTER)
         self.connect("draw", self._draw)
 
@@ -429,41 +429,69 @@ class Equaliser(Gtk.DrawingArea):
         now = time.monotonic()
         dt = min(0.05, max(0.0, now - self._last))
         self._last = now
-        self.phase += dt * 5.2
-        freqs = (1.0, 1.38, 0.84, 1.22)
-        offsets = (0.0, 1.4, 2.7, 4.1)
-        for i in range(4):
+        self.phase += dt * 5.0
+        freqs = (0.95, 1.32, 1.08, 1.44, 0.88)
+        offsets = (0.0, 1.3, 2.5, 3.8, 5.1)
+        weights = (0.72, 0.94, 1.0, 0.92, 0.70)  # tapered edges like Apple Dynamic Island
+        for i in range(5):
             w1 = math.sin(self.phase * freqs[i] + offsets[i])
-            w2 = math.sin(self.phase * (freqs[i] * 1.9 + 0.3) + offsets[i] * 1.7)
-            target = 0.20 + 0.80 * (0.5 + 0.32 * w1 + 0.18 * w2)
+            w2 = math.sin(self.phase * (freqs[i] * 1.85 + 0.25) + offsets[i] * 1.6)
+            target = (0.18 + 0.82 * (0.5 + 0.32 * w1 + 0.18 * w2)) * weights[i]
             self._amps[i] += (target - self._amps[i]) * min(1.0, dt * 14.0)
         self.queue_draw()
         return True
 
     def _draw(self, _w, cr):
-        cr.set_source_rgba(self.rgb[0], self.rgb[1], self.rgb[2], 0.94)
-        bar_w, gap = 2.6, 2.4
-        total_w = 4 * bar_w + 3 * gap
-        x0 = (20.0 - total_w) / 2.0
+        r0, g0, b0 = self.rgb
         cy = 8.0
-        for i in range(4):
-            amp = self._amps[i] if self._tick else 0.22
-            bh = max(3.2, 14.0 * amp)
-            x = x0 + i * (bar_w + gap)
-            if self.mode == "pixels":
-                for j in range(max(1, round(4 * amp))):
-                    cr.rectangle(x, 15.0 - (j + 1) * 3.4, 2.8, 2.6)
+        if self.mode == "pixels":
+            bar_w, gap = 2.6, 2.0
+            total_w = 5 * bar_w + 4 * gap
+            x0 = (24.0 - total_w) / 2.0
+            for i in range(5):
+                amp = self._amps[i] if self._tick else 0.22
+                rows = max(1, round(4.4 * amp))
+                x = x0 + i * (bar_w + gap)
+                for j in range(rows):
+                    # Brighter at peak, softer at base
+                    alpha = 0.52 + 0.48 * (j / max(1, rows - 1)) if rows > 1 else 0.78
+                    cr.set_source_rgba(r0, g0, b0, alpha)
+                    y = 14.6 - (j + 1) * 3.1
+                    cr.new_path()
+                    rr = 0.85
+                    cr.arc(x + bar_w - rr, y + rr, rr, -math.pi / 2, 0)
+                    cr.arc(x + bar_w - rr, y + 2.3 - rr, rr, 0, math.pi / 2)
+                    cr.arc(x + rr, y + 2.3 - rr, rr, math.pi / 2, math.pi)
+                    cr.arc(x + rr, y + rr, rr, math.pi, 1.5 * math.pi)
+                    cr.close_path()
+                    cr.fill()
+        elif self.mode == "dots":
+            # 4 sleek floating wave dots gliding smoothly up and down
+            gap = 5.4
+            x0 = (24.0 - 3 * gap) / 2.0
+            for i in range(4):
+                wave = math.sin(self.phase * 1.15 - i * 0.95) if self._tick else 0.0
+                dy = wave * 3.6
+                rad = 1.85 + 0.35 * (0.5 + 0.5 * wave)
+                alpha = 0.68 + 0.32 * (0.5 + 0.5 * wave)
+                cr.set_source_rgba(r0, g0, b0, alpha)
+                cr.arc(x0 + i * gap, cy + dy, rad, 0, math.tau)
                 cr.fill()
-            elif self.mode == "dots":
-                r = 1.4 + 1.3 * amp
-                cr.arc(x + bar_w / 2.0, cy, r, 0, math.tau)
-                cr.fill()
-            else:
+        else:
+            # 5 sleek centered pill-rounded Dynamic Island bars
+            bar_w, gap = 2.4, 2.2
+            total_w = 5 * bar_w + 4 * gap
+            x0 = (24.0 - total_w) / 2.0
+            for i in range(5):
+                amp = self._amps[i] if self._tick else 0.22
+                bh = max(3.0, 14.4 * amp)
+                x = x0 + i * (bar_w + gap)
                 y = cy - bh / 2.0
-                r = bar_w / 2.0
+                rr = bar_w / 2.0
+                cr.set_source_rgba(r0, g0, b0, 0.78 + 0.22 * amp)
                 cr.new_path()
-                cr.arc(x + r, y + r, r, math.pi, 2 * math.pi)
-                cr.arc(x + r, y + bh - r, r, 0, math.pi)
+                cr.arc(x + rr, y + rr, rr, math.pi, 2 * math.pi)
+                cr.arc(x + rr, y + bh - rr, rr, 0, math.pi)
                 cr.close_path()
                 cr.fill()
 
@@ -608,6 +636,18 @@ class TransportButton(Gtk.DrawingArea):
                 cr.fill()
                 self._rrect(cr, 2.4, -9.5, 5.4, 19.0, 2.5)
                 cr.fill()
+        elif self.kind == "lyrics":
+            # Crisp Apple-Music-style rounded speech-bubble lyrics glyph
+            cr.set_source_rgba(1, 1, 1, 0.48 + 0.48 * self._ht)
+            self._rrect(cr, -6.5, -5.8, 13.0, 9.6, 3.0)
+            cr.set_line_width(1.4)
+            cr.stroke()
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.move_to(-3.5, -2.4)
+            cr.line_to(3.5, -2.4)
+            cr.move_to(-3.5, 0.6)
+            cr.line_to(1.6, 0.6)
+            cr.stroke()
         else:
             # Modern SF-Symbols double-triangle skip (backward.fill / forward.fill)
             cr.set_source_rgba(1, 1, 1, 0.50 + 0.48 * self._ht)
@@ -780,70 +820,103 @@ class WaveSeek(Gtk.DrawingArea):
         x_now = pad + fill_w
 
         if self.style == "comet":
-            bar_h = 3.0 + 2.2 * ht
+            bar_h = 3.0 + 2.4 * ht
             cy = h - 6.0
             by = cy - bar_h / 2.0
-            cr.set_line_cap(cairo.LINE_CAP_ROUND)
-            cr.set_line_width(bar_h)
-            cr.set_source_rgba(1, 1, 1, 0.16 + 0.08 * ht)
-            cr.move_to(pad, cy)
-            cr.line_to(w - pad, cy)
-            cr.stroke()
-            if not self.unknown:
+            # Sleek translucent track
+            self._pill(cr, pad, by, span, bar_h)
+            cr.set_source_rgba(1, 1, 1, 0.14 + 0.08 * ht)
+            cr.fill()
+            if not self.unknown and fill_w > 0.5:
+                # Soft bloom behind the front third of the comet tail
+                bloom_x = max(pad, x_now - max(28.0, fill_w * 0.38))
+                bloom = cairo.LinearGradient(bloom_x, 0, x_now, 0)
+                bloom.add_color_stop_rgba(0.0, ar, ag, ab, 0.0)
+                bloom.add_color_stop_rgba(1.0, ar, ag, ab, 0.24 + 0.12 * ht)
+                cr.set_source(bloom)
+                cr.set_line_cap(cairo.LINE_CAP_ROUND)
+                cr.set_line_width(bar_h + 5.0)
+                cr.move_to(bloom_x, cy)
+                cr.line_to(x_now, cy)
+                cr.stroke()
+                # Smooth 3-stop tapered luminous comet tail
                 tail = cairo.LinearGradient(pad, 0, max(pad + 1.0, x_now), 0)
-                tail.add_color_stop_rgba(0.0, ar, ag, ab, 0.18)
-                tail.add_color_stop_rgba(1.0, ar, ag, ab, 0.98)
+                tail.add_color_stop_rgba(0.0, ar, ag, ab, 0.10)
+                tail.add_color_stop_rgba(0.65, ar, ag, ab, 0.52)
+                tail.add_color_stop_rgba(1.0, ar, ag, ab, 1.0)
                 cr.set_source(tail)
                 cr.set_line_width(bar_h)
                 cr.move_to(pad, cy)
                 cr.line_to(x_now, cy)
                 cr.stroke()
-                glow_r = 6.5 + 2.0 * ht
+                # Tight crisp star halo + pure white head
+                glow_r = 7.5 + 2.5 * ht
                 glow = cairo.RadialGradient(x_now, cy, 0, x_now, cy, glow_r)
-                glow.add_color_stop_rgba(0.0, ar, ag, ab, 0.44)
+                glow.add_color_stop_rgba(0.0, ar, ag, ab, 0.42)
+                glow.add_color_stop_rgba(0.55, ar, ag, ab, 0.14)
                 glow.add_color_stop_rgba(1.0, ar, ag, ab, 0.0)
                 cr.set_source(glow)
                 cr.arc(x_now, cy, glow_r, 0, math.tau)
                 cr.fill()
-                cr.set_source_rgb(ar, ag, ab)
-                cr.arc(x_now, cy, 3.2 + 1.0 * ht, 0, math.tau)
+                cr.set_source_rgb(1.0, 1.0, 1.0)
+                cr.arc(x_now, cy, 3.0 + 1.1 * ht, 0, math.tau)
                 cr.fill()
         elif self.style == "wave":
-            bar_h = 2.6 + 1.4 * ht
-            cy = h - 6.5
+            bar_h = 2.6 + 1.2 * ht
+            cy = h - 7.0
             by = cy - bar_h / 2.0
+            # Clean rounded unfilled track ahead of playhead
             cr.set_line_cap(cairo.LINE_CAP_ROUND)
             cr.set_line_width(bar_h)
-            cr.set_source_rgba(1, 1, 1, 0.16 + 0.08 * ht)
-            cr.move_to(x_now if not self.unknown else pad, cy)
+            cr.set_source_rgba(1, 1, 1, 0.15 + 0.08 * ht)
+            cr.move_to(min(w - pad, (x_now + 5.0) if not self.unknown else pad), cy)
             cr.line_to(w - pad, cy)
             cr.stroke()
-            if not self.unknown and fill_w > 1.0:
-                cr.set_source_rgba(ar, ag, ab, 0.94)
+            if not self.unknown and fill_w > 2.0:
+                # Tapered smooth sine wave (amplitude eases cleanly to 0 at start & playhead)
+                amp_max = 2.6 + 0.6 * ht
+                wave_grad = cairo.LinearGradient(pad, 0, x_now, 0)
+                wave_grad.add_color_stop_rgba(0.0, ar, ag, ab, 0.55)
+                wave_grad.add_color_stop_rgba(1.0, ar, ag, ab, 1.0)
+                cr.set_source(wave_grad)
                 cr.set_line_width(bar_h)
-                cr.move_to(pad, cy + 2.4 * math.sin(pad / 5.2 - self.phase))
+                cr.move_to(pad, cy)
                 x = pad + 1.5
                 while x <= x_now:
-                    cr.line_to(x, cy + 2.4 * math.sin(x / 5.2 - self.phase))
+                    # Smooth envelope tapering at both ends
+                    u = (x - pad) / max(1.0, fill_w)
+                    env = min(1.0, u * 8.0) * min(1.0, (1.0 - u) * 10.0)
+                    y = cy + amp_max * env * math.sin((x - pad) / 5.4 - self.phase)
+                    cr.line_to(x, y)
                     x += 1.5
+                cr.line_to(x_now, cy)
                 cr.stroke()
-                cr.set_source_rgb(ar, ag, ab)
-                cr.arc(x_now, cy + 2.4 * math.sin(x_now / 5.2 - self.phase), 3.2 + 0.9 * ht, 0, math.tau)
+                # Modern sleek vertical pill thumb (Android 14 / Apple glass look)
+                tw = 3.4 + 0.8 * ht
+                th = 10.5 + 2.5 * ht
+                self._pill(cr, x_now - tw / 2.0, cy - th / 2.0, tw, th)
+                cr.set_source_rgb(1.0, 1.0, 1.0)
                 cr.fill()
         else:
-            bar_h = 4.0 + 3.5 * ht  # sleek 4 px Apple glass pill -> 7.5 px on hover/scrub
-            cy = h - 5.5
+            bar_h = 4.5 + 3.5 * ht  # Apple Liquid Glass pill: 4.5 px -> 8 px on hover
+            cy = h - 6.0
             by = cy - bar_h / 2.0
+            # Recessed glass track with subtle rim
             self._pill(cr, pad, by, span, bar_h)
-            cr.set_source_rgba(1, 1, 1, 0.14 + 0.08 * ht)
-            cr.fill()
+            cr.set_source_rgba(1, 1, 1, 0.13 + 0.08 * ht)
+            cr.fill_preserve()
+            cr.set_source_rgba(1, 1, 1, 0.07 + 0.06 * ht)
+            cr.set_line_width(0.75)
+            cr.stroke()
             if not self.unknown and fill_w > 0.5:
                 cr.save()
                 self._pill(cr, pad, by, span, bar_h)
                 cr.clip()
-                fill_grad = cairo.LinearGradient(pad, 0, pad + max(1.0, fill_w), 0)
-                fill_grad.add_color_stop_rgba(0.0, ar, ag, ab, 0.72 + 0.18 * ht)
-                fill_grad.add_color_stop_rgba(1.0, ar, ag, ab, 0.96 + 0.04 * ht)
+                # Polished glass fill with subtle top specular sheen
+                fill_grad = cairo.LinearGradient(0, by, 0, by + bar_h)
+                fill_grad.add_color_stop_rgba(0.0, ar, ag, ab, 0.98)
+                fill_grad.add_color_stop_rgba(0.55, ar, ag, ab, 0.86 + 0.10 * ht)
+                fill_grad.add_color_stop_rgba(1.0, ar, ag, ab, 0.72 + 0.16 * ht)
                 self._pill(cr, pad, by, max(bar_h, fill_w), bar_h)
                 cr.set_source(fill_grad)
                 cr.fill()
@@ -1530,8 +1603,7 @@ class Notch(Gtk.Window):
         right_foot = Gtk.Box(spacing=6, valign=Gtk.Align.CENTER)
         right_foot.pack_start(self.m_len, False, False, 0)
         if self.cfg["lyrics"]:
-            lyr = icon_button("format-justify-left-symbolic", "Synced lyrics", lambda: self._show_lyrics(True),
-                              size=Gtk.IconSize.MENU)
+            lyr = TransportButton("lyrics", "Synced lyrics", lambda: self._show_lyrics(True), size=22)
             right_foot.pack_start(lyr, False, False, 0)
         foot.pack_end(right_foot, False, False, 0)
 
