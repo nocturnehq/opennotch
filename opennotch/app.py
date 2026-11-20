@@ -401,48 +401,232 @@ class ArtView(Gtk.DrawingArea):
 
 
 class Equaliser(Gtk.DrawingArea):
+    """60 fps fluid Dynamic-Island-style audio wave (centered pill-rounded bars)."""
+
     def __init__(self, rgb):
         super().__init__()
-        self.rgb, self.phase, self.timer = rgb, 0.0, 0
-        self.pixels = True
-        self.set_size_request(16, 14)
+        self.rgb, self.phase, self._tick, self._last = rgb, 0.0, 0, 0.0
+        self.pixels = False
+        self._amps = [0.22, 0.22, 0.22, 0.22]
+        self.set_size_request(20, 16)
         self.set_valign(Gtk.Align.CENTER)
         self.connect("draw", self._draw)
 
-    def run(self, on):
-        if on and not self.timer:
-            self.timer = GLib.timeout_add(90, self._step)  # ~11 fps keeps the pill cheap
-        elif not on and self.timer:
-            GLib.source_remove(self.timer)
-            self.timer = 0
+    def set_rgb(self, rgb):
+        self.rgb = rgb
         self.queue_draw()
 
-    def _step(self):
-        self.phase += 0.45
+    def run(self, on):
+        if on and not self._tick:
+            self._last = time.monotonic()
+            self._tick = self.add_tick_callback(self._step)
+        elif not on and self._tick:
+            self.remove_tick_callback(self._tick)
+            self._tick = 0
+        self.queue_draw()
+
+    def _step(self, _w, _clock):
+        now = time.monotonic()
+        dt = min(0.05, max(0.0, now - self._last))
+        self._last = now
+        self.phase += dt * 5.2
+        freqs = (1.0, 1.38, 0.84, 1.22)
+        offsets = (0.0, 1.4, 2.7, 4.1)
+        for i in range(4):
+            w1 = math.sin(self.phase * freqs[i] + offsets[i])
+            w2 = math.sin(self.phase * (freqs[i] * 1.9 + 0.3) + offsets[i] * 1.7)
+            target = 0.20 + 0.80 * (0.5 + 0.32 * w1 + 0.18 * w2)
+            self._amps[i] += (target - self._amps[i]) * min(1.0, dt * 14.0)
         self.queue_draw()
         return True
 
     def _draw(self, _w, cr):
-        # Visualizer=pixels: columns of square pixels instead of smooth bars
-        cr.set_source_rgb(*self.rgb)
+        cr.set_source_rgba(self.rgb[0], self.rgb[1], self.rgb[2], 0.94)
+        bar_w, gap = 2.6, 2.4
+        total_w = 4 * bar_w + 3 * gap
+        x0 = (20.0 - total_w) / 2.0
+        cy = 8.0
         for i in range(4):
-            amp = 0.25 + 0.75 * abs(math.sin(self.phase * (1 + i * 0.37) + i * 1.7)) if self.timer else 0.25
-            if not self.pixels:  # Visualizer=bars: smooth rounded bars
-                cr.rectangle(i * 4, 14 - 14 * amp, 2.5, 14 * amp)
-                continue
-            for j in range(max(1, round(4 * amp))):
-                cr.rectangle(i * 4, 14 - (j + 1) * 3.5, 3, 3)
-        cr.fill()
+            amp = self._amps[i] if self._tick else 0.22
+            bh = max(3.2, 14.0 * amp)
+            x = x0 + i * (bar_w + gap)
+            if self.pixels:
+                for j in range(max(1, round(4 * amp))):
+                    cr.rectangle(x, 15.0 - (j + 1) * 3.4, 2.8, 2.6)
+                cr.fill()
+            else:
+                y = cy - bh / 2.0
+                r = bar_w / 2.0
+                cr.new_path()
+                cr.arc(x + r, y + r, r, math.pi, 2 * math.pi)
+                cr.arc(x + r, y + bh - r, r, 0, math.pi)
+                cr.close_path()
+                cr.fill()
+
+
+class TransportButton(Gtk.DrawingArea):
+    """Crisp, modern SF-Symbols-style Cairo transport button with smooth 60 fps hover & press."""
+
+    def __init__(self, kind, tooltip, on_click, size=34):
+        super().__init__()
+        self.kind = kind  # "play", "pause", "prev", "next"
+        self.on_click = on_click
+        self.size = size
+        self._hover = False
+        self._pressed = False
+        self._ht = 0.0
+        self._pt = 0.0
+        self._tick = 0
+        self._last = 0.0
+        self.set_size_request(size, size)
+        self.set_valign(Gtk.Align.CENTER)
+        self.set_tooltip_text(tooltip)
+        self.add_events(
+            Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK |
+            Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK
+        )
+        self.connect("draw", self._draw)
+        self.connect("enter-notify-event", self._on_enter)
+        self.connect("leave-notify-event", self._on_leave)
+        self.connect("button-press-event", self._on_press)
+        self.connect("button-release-event", self._on_release)
+        self.connect("realize", self._on_realize)
+
+    def set_kind(self, kind):
+        if self.kind != kind:
+            self.kind = kind
+            self.queue_draw()
+
+    def _on_realize(self, *_):
+        win = self.get_window()
+        if win is not None:
+            win.set_cursor(Gdk.Cursor.new_from_name(self.get_display(), "pointer"))
+
+    def _kick(self):
+        self._last = time.monotonic()
+        if not self._tick:
+            self._tick = self.add_tick_callback(self._step)
+
+    def _step(self, _w, _clock):
+        now = time.monotonic()
+        dt = min(0.05, max(0.0, now - self._last))
+        self._last = now
+        th = 1.0 if self._hover else 0.0
+        tp = 1.0 if self._pressed else 0.0
+        self._ht += (th - self._ht) * min(1.0, dt * 16.0)
+        self._pt += (tp - self._pt) * min(1.0, dt * 22.0)
+        self.queue_draw()
+        if abs(th - self._ht) < 0.01 and abs(tp - self._pt) < 0.01:
+            self._ht, self._pt, self._tick = th, tp, 0
+            return False
+        return True
+
+    def _on_enter(self, *_):
+        self._hover = True
+        self._kick()
+        return False
+
+    def _on_leave(self, *_):
+        self._hover = False
+        self._pressed = False
+        self._kick()
+        return False
+
+    def _on_press(self, _w, ev):
+        if ev.button == 1:
+            self._pressed = True
+            self._kick()
+            return True
+        return False
+
+    def _on_release(self, _w, ev):
+        if ev.button == 1 and self._pressed:
+            self._pressed = False
+            self._kick()
+            if self._hover and self.on_click:
+                self.on_click()
+            return True
+        return False
+
+    @staticmethod
+    def _rounded_tri(cr, pts, r):
+        """Draw a closed triangle with smooth circularly rounded vertices (SF Symbols look)."""
+        cr.new_path()
+        for i in range(3):
+            p_prev = pts[(i - 1) % 3]
+            p_cur = pts[i]
+            p_next = pts[(i + 1) % 3]
+            v1x, v1y = p_prev[0] - p_cur[0], p_prev[1] - p_cur[1]
+            v2x, v2y = p_next[0] - p_cur[0], p_next[1] - p_cur[1]
+            l1 = math.hypot(v1x, v1y) or 1.0
+            l2 = math.hypot(v2x, v2y) or 1.0
+            d = min(r, l1 * 0.35, l2 * 0.35)
+            ax, ay = p_cur[0] + v1x / l1 * d, p_cur[1] + v1y / l1 * d
+            bx, by = p_cur[0] + v2x / l2 * d, p_cur[1] + v2y / l2 * d
+            if i == 0:
+                cr.move_to(ax, ay)
+            else:
+                cr.line_to(ax, ay)
+            cr.curve_to(p_cur[0], p_cur[1], p_cur[0], p_cur[1], bx, by)
+        cr.close_path()
+
+    @staticmethod
+    def _rrect(cr, x, y, w, h, r):
+        r = min(r, w / 2.0, h / 2.0)
+        cr.new_path()
+        cr.arc(x + w - r, y + r, r, -math.pi / 2, 0)
+        cr.arc(x + w - r, y + h - r, r, 0, math.pi / 2)
+        cr.arc(x + r, y + h - r, r, math.pi / 2, math.pi)
+        cr.arc(x + r, y + r, r, math.pi, 1.5 * math.pi)
+        cr.close_path()
+
+    def _draw(self, _w, cr):
+        w, h = self.get_allocated_width(), self.get_allocated_height()
+        cx, cy = w / 2.0, h / 2.0
+        # Subtle circular hover pill behind glyph
+        if self._ht > 0.01:
+            cr.set_source_rgba(1, 1, 1, 0.09 * self._ht)
+            cr.arc(cx, cy, min(w, h) * 0.48, 0, math.tau)
+            cr.fill()
+        cr.save()
+        scale = 1.0 + 0.04 * self._ht - 0.12 * self._pt
+        cr.translate(cx, cy)
+        cr.scale(scale, scale)
+        if self.kind in ("play", "pause"):
+            cr.set_source_rgba(1, 1, 1, 0.94 + 0.06 * self._ht)
+            if self.kind == "play":
+                # Optically centered rounded SF play triangle
+                self._rounded_tri(cr, [(-7.0, -9.8), (10.5, 0.0), (-7.0, 9.8)], 2.8)
+                cr.fill()
+            else:
+                # Two sleek pill-rounded pause bars
+                self._rrect(cr, -7.8, -9.5, 5.4, 19.0, 2.5)
+                cr.fill()
+                self._rrect(cr, 2.4, -9.5, 5.4, 19.0, 2.5)
+                cr.fill()
+        else:
+            # Modern SF-Symbols double-triangle skip (backward.fill / forward.fill)
+            cr.set_source_rgba(1, 1, 1, 0.50 + 0.48 * self._ht)
+            sgn = -1.0 if self.kind == "prev" else 1.0
+            for ox in (-4.8 * sgn, 4.2 * sgn):
+                pts = [
+                    (ox - 5.2 * sgn, -6.2),
+                    (ox + 5.6 * sgn, 0.0),
+                    (ox - 5.2 * sgn, 6.2),
+                ]
+                self._rounded_tri(cr, pts, 1.9)
+                cr.fill()
+        cr.restore()
 
 
 class WaveSeek(Gtk.DrawingArea):
-    """Apple-style liquid-glass scrub bar: thickens on hover with a floating scrub-time tooltip."""
+    """60 fps Apple Dynamic-Island glass scrub bar: glides smoothly, thickens on hover with time pill."""
 
     def __init__(self, on_seek, reduce_motion=False):
         super().__init__()
         self.on_seek = on_seek
         self.reduce_motion = bool(reduce_motion)
-        self.max, self.value, self.phase, self.timer, self.drag = 1.0, 0.0, 0.0, 0, False
+        self.max, self.value, self.phase, self.drag = 1.0, 0.0, 0.0, False
         self.comet = True
         self.unknown = False
         self.hovered = False
@@ -450,7 +634,9 @@ class WaveSeek(Gtk.DrawingArea):
         self.hover_t = 0.0
         self._hover_tick = 0
         self._hover_last = 0.0
-        self.set_size_request(-1, 18)
+        self._play_tick = 0
+        self._play_last = 0.0
+        self.set_size_request(-1, 22)
         self.add_events(
             Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK |
             Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.ENTER_NOTIFY_MASK |
@@ -477,18 +663,25 @@ class WaveSeek(Gtk.DrawingArea):
     def set_value(self, v):
         if not self.drag:
             self.value = v
+            self._play_last = time.monotonic()
             self.queue_draw()
 
     def animate(self, on):
-        on = on and not self.comet and not self.reduce_motion
-        if on and not self.timer:
-            self.timer = GLib.timeout_add(60, self._step)
-        elif not on and self.timer:
-            GLib.source_remove(self.timer)
-            self.timer = 0
+        on = bool(on) and not self.reduce_motion
+        if on and not self._play_tick:
+            self._play_last = time.monotonic()
+            self._play_tick = self.add_tick_callback(self._step_play)
+        elif not on and self._play_tick:
+            self.remove_tick_callback(self._play_tick)
+            self._play_tick = 0
 
-    def _step(self):
-        self.phase += 0.35
+    def _step_play(self, _w, _clock):
+        now = time.monotonic()
+        dt = min(0.1, max(0.0, now - self._play_last))
+        self._play_last = now
+        if not self.drag and not self.unknown and self.max > 0:
+            self.value = min(self.max, self.value + dt)
+        self.phase += dt * 5.0
         self.queue_draw()
         return True
 
@@ -507,7 +700,7 @@ class WaveSeek(Gtk.DrawingArea):
         dt = min(0.05, max(0.0, now - self._hover_last))
         self._hover_last = now
         target = 1.0 if (self.hovered or self.drag) else 0.0
-        rate = 9.0 if target > self.hover_t else 7.0
+        rate = 14.0 if target > self.hover_t else 10.0
         diff = target - self.hover_t
         if abs(diff) < 0.01:
             self.hover_t = target
@@ -551,6 +744,7 @@ class WaveSeek(Gtk.DrawingArea):
         pad = 2.0
         frac = max(0.0, min(1.0, (ev.x - pad) / max(1.0, w - 2 * pad)))
         self.value = frac * self.max
+        self._play_last = time.monotonic()
         self._start_hover_anim()
         self.queue_draw()
         self.on_seek(self.value)
@@ -572,89 +766,56 @@ class WaveSeek(Gtk.DrawingArea):
         w, h = self.get_allocated_width(), self.get_allocated_height()
         if w < 12:
             return
-        pad = 4.0
+        pad = 2.0
         span = w - 2 * pad
         ht = self.hover_t if (self.get_sensitive() and not self.unknown) else 0.0
-        bar_h = 2.8 + 2.2 * ht  # NotchPixel sleek 2.8 px comet bar -> 5 px on hover
-        cy = h / 2.0
+        bar_h = 4.0 + 3.5 * ht  # sleek 4 px Apple glass pill -> 7.5 px on hover/scrub
+        cy = h - 5.5
         by = cy - bar_h / 2.0
 
-        # Subtle full-width track
-        cr.set_line_cap(cairo.LINE_CAP_ROUND)
-        cr.set_line_width(bar_h)
-        cr.set_source_rgba(1, 1, 1, 0.18 + 0.08 * ht)
-        cr.move_to(pad, cy)
-        cr.line_to(w - pad, cy)
-        cr.stroke()
+        # Translucent glass track
+        self._pill(cr, pad, by, span, bar_h)
+        cr.set_source_rgba(1, 1, 1, 0.14 + 0.08 * ht)
+        cr.fill()
 
         frac = 0.0 if self.unknown else max(0.0, min(1.0, self.value / self.max))
-        x_now = pad + span * frac
+        fill_w = span * frac
 
         if self.unknown:
-            cr.set_source_rgba(1, 1, 1, 0.85)
-            cr.arc(pad, cy, 3.0, 0, math.tau)
-            cr.fill()
             return
 
-        if self.comet:
-            # NotchPixel comet: fading luminous tail into a crisp glowing white playhead dot
-            tail = cairo.LinearGradient(pad, 0, max(pad + 1.0, x_now), 0)
-            tail.add_color_stop_rgba(0, 1, 1, 1, 0.22)
-            tail.add_color_stop_rgba(1, 1, 1, 1, 0.98)
-            cr.set_source(tail)
-            cr.set_line_width(bar_h)
-            cr.move_to(pad, cy)
-            cr.line_to(x_now, cy)
-            cr.stroke()
-            glow_r = 9.0 + 2.0 * ht
-            glow = cairo.RadialGradient(x_now, cy, 0, x_now, cy, glow_r)
-            glow.add_color_stop_rgba(0, 1, 1, 1, 0.60)
-            glow.add_color_stop_rgba(1, 1, 1, 1, 0.0)
-            cr.set_source(glow)
-            cr.arc(x_now, cy, glow_r, 0, math.tau)
+        # Smooth rounded pill progress fill (clipped cleanly to the track pill)
+        if fill_w > 0.5:
+            cr.save()
+            self._pill(cr, pad, by, span, bar_h)
+            cr.clip()
+            fill_grad = cairo.LinearGradient(pad, 0, pad + max(1.0, fill_w), 0)
+            fill_grad.add_color_stop_rgba(0.0, 1, 1, 1, 0.72 + 0.18 * ht)
+            fill_grad.add_color_stop_rgba(1.0, 1, 1, 1, 0.96 + 0.04 * ht)
+            self._pill(cr, pad, by, max(bar_h, fill_w), bar_h)
+            cr.set_source(fill_grad)
             cr.fill()
-            cr.set_source_rgb(1, 1, 1)
-            cr.arc(x_now, cy, 3.7 + 1.0 * ht, 0, math.tau)
-            cr.fill()
-        else:
-            cr.set_line_width(bar_h)
-            cr.set_source_rgba(1, 1, 1, 0.95)
-            cr.move_to(pad, cy)
-            x = pad
-            while x <= x_now:
-                cr.line_to(x, cy + 2.6 * math.sin(x / 4.8 - self.phase))
-                x += 1.5
-            cr.stroke()
-            cr.set_source_rgb(1, 1, 1)
-            cr.arc(x_now, cy, 3.5 + 1.0 * ht, 0, math.tau)
-            cr.fill()
+            cr.restore()
 
         # Subtle hover scrub hairline + floating scrub-time pill tooltip
         if ht > 0.05 and self.get_sensitive():
             hx = max(pad, min(pad + span, self.hover_x))
             h_frac = (hx - pad) / max(1.0, span)
             h_sec = h_frac * self.max
-            # faint hairline inside track at hovered position
-            cr.set_source_rgba(1, 1, 1, 0.55 * ht)
-            cr.set_line_width(1.2)
-            cr.move_to(hx, by + 1.0)
-            cr.line_to(hx, by + bar_h - 1.0)
-            cr.stroke()
-            # floating time pill directly above hover_x
             txt = fmt_time(h_sec)
             cr.select_font_face("SF Pro Text", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-            cr.set_font_size(10.5)
+            cr.set_font_size(10.0)
             ext = cr.text_extents(txt)
-            pw, ph = ext.width + 12.0, 15.0
+            pw, ph = ext.width + 11.0, 14.0
             px = max(pad, min(w - pad - pw, hx - pw / 2.0))
-            py = max(0.0, by - ph - 3.5)
-            self._pill(cr, px, py, pw, ph, r=7.5)
-            cr.set_source_rgba(0.10, 0.10, 0.12, 0.92 * ht)
+            py = max(0.0, by - ph - 3.0)
+            self._pill(cr, px, py, pw, ph, r=7.0)
+            cr.set_source_rgba(0.11, 0.11, 0.13, 0.92 * ht)
             cr.fill_preserve()
-            cr.set_source_rgba(1, 1, 1, 0.22 * ht)
+            cr.set_source_rgba(1, 1, 1, 0.20 * ht)
             cr.set_line_width(0.8)
             cr.stroke()
-            cr.set_source_rgba(1, 1, 1, 0.95 * ht)
+            cr.set_source_rgba(1, 1, 1, 0.96 * ht)
             cr.move_to(px + (pw - ext.width) / 2.0 - ext.x_bearing, py + (ph + ext.height) / 2.0 - 0.5)
             cr.show_text(txt)
 
@@ -1068,16 +1229,14 @@ class Notch(Gtk.Window):
         self.pill_time = label("", "wing", ellipsize=False)
         self.pill_wicon = Gtk.Image()
         self.pill_temp = label("", "wingdim", ellipsize=False)
-        self.pill_art = ArtView(max(14, ph - 14), 4)
+        self.pill_art = ArtView(max(18, ph - 12), 6)
         a = self.accent
         self.pill_eq = Equaliser((a.red, a.green, a.blue))
         self.pill_eq.pixels = self.cfg["visualizer"] == "pixels"
         center = Gtk.Box(spacing=6)
-        center.pack_start(self.pill_art, False, False, 0)
         self.pill_title = label("", "pilltext", chars=16)
         self.pill_title.set_no_show_all(True)
         center.pack_start(self.pill_title, False, False, 0)
-        center.pack_start(self.pill_eq, False, False, 0)
         self.pill_pet = None
         if self.cfg["resting"] == "pet":
             from .pet import IdlePet
@@ -1088,6 +1247,8 @@ class Notch(Gtk.Window):
             self.pill_pet.set_no_show_all(True)
             center.pack_start(self.pill_pet, False, False, 0)
         box.set_center_widget(center)
+        box.pack_start(self.pill_art, False, False, 0)
+        box.pack_end(self.pill_eq, False, False, 0)
         self.pill_rec = label("●", "rec pilltext", ellipsize=False)
         self.pill_capture = label("", "pilltext", ellipsize=False)
         self.pill_meeting = label("", "pilltext", ellipsize=False)
@@ -1280,34 +1441,12 @@ class Notch(Gtk.Window):
             meta.pack_start(w, False, False, 0)
         top_row.pack_start(meta, True, True, 0)
 
-        # Inline transport right of title/artist: muted ◀◀, large pure-white ▶ / ❚❚, muted ▶▶
-        transport = Gtk.Box(spacing=14, valign=Gtk.Align.CENTER)
-        play_img = Gtk.Image.new_from_icon_name("media-playback-start-symbolic", Gtk.IconSize.DIALOG)
-        play_img.set_pixel_size(30)
-        self.b_play = Gtk.Button()
-        self.b_play.set_image(play_img)
-        self.b_play.set_tooltip_text("Play / pause")
-        self.b_play.set_relief(Gtk.ReliefStyle.NONE)
-        self.b_play.set_can_focus(False)
-        self.b_play.get_style_context().add_class("m-play")
-        self.b_play.connect("clicked", lambda *_: self.mpris and self.mpris.call("PlayPause"))
-
-        for icon, tip, method in (("media-seek-backward-symbolic", "Previous", "Previous"),
-                                  (None, None, None),
-                                  ("media-seek-forward-symbolic", "Next", "Next")):
-            if icon is None:
-                transport.pack_start(self.b_play, False, False, 0)
-                continue
-            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.LARGE_TOOLBAR)
-            img.set_pixel_size(20)
-            b = Gtk.Button()
-            b.set_image(img)
-            b.set_tooltip_text(tip)
-            b.set_relief(Gtk.ReliefStyle.NONE)
-            b.set_can_focus(False)
-            b.get_style_context().add_class("m-skip")
-            b.set_valign(Gtk.Align.CENTER)
-            b.connect("clicked", lambda *_, m=method: self.mpris and self.mpris.call(m))
+        # Inline transport right of title/artist: crisp SF-Symbols-style Cairo vectors
+        transport = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
+        b_prev = TransportButton("prev", "Previous", lambda: self.mpris and self.mpris.call("Previous"), size=32)
+        self.b_play = TransportButton("play", "Play / pause", lambda: self.mpris and self.mpris.call("PlayPause"), size=38)
+        b_next = TransportButton("next", "Next", lambda: self.mpris and self.mpris.call("Next"), size=32)
+        for b in (b_prev, self.b_play, b_next):
             transport.pack_start(b, False, False, 0)
         top_row.pack_end(transport, False, False, 0)
 
@@ -2361,11 +2500,7 @@ class Notch(Gtk.Window):
             self.seek.set_range(0, 0)
             self.m_pos.set_text("0:00")
             self.m_len.set_text("-0:00")
-        play_img = Gtk.Image.new_from_icon_name(
-            "media-playback-pause-symbolic" if playing else "media-playback-start-symbolic",
-            Gtk.IconSize.DIALOG)
-        play_img.set_pixel_size(30)
-        self.b_play.set_image(play_img)
+        self.b_play.set_kind("pause" if playing else "play")
         self._load_art(info["art"] if info else "")
         if self.music_stack.get_visible_child_name() == "lyrics":
             self._load_lyrics()
@@ -2428,6 +2563,14 @@ class Notch(Gtk.Window):
         self.art.set_pixbuf(pb)
         self.pill_art.set_pixbuf(pb)
         self.art_rgb = dominant_rgb(pb)
+        if hasattr(self, "pill_eq"):
+            if self.art_rgb:
+                # Gently lift album-art color so the 60 fps pill wave glows cleanly on black
+                r, g, b = self.art_rgb
+                self.pill_eq.set_rgb((0.35 + 0.65 * r, 0.35 + 0.65 * g, 0.35 + 0.65 * b))
+            else:
+                a = self.accent
+                self.pill_eq.set_rgb((a.red, a.green, a.blue))
         self.queue_draw()
 
     def _on_seek_value(self, value):
@@ -3019,7 +3162,7 @@ class Notch(Gtk.Window):
         self.pill_badge.set_text(str(min(self.unread, 99)) if getattr(self, "unread", 0) else "")
         self.pill_badge.set_visible(bool(getattr(self, "unread", 0)))
         if self.pill_pet is not None:
-            self.pill_pet.set_visible(not (rec or self._capture_status_visible() or countdown or self.game_strip))
+            self.pill_pet.set_visible(not (playing or rec or self._capture_status_visible() or countdown or self.game_strip))
         self._update_pet_mood(playing=playing, pomo=p)
         if "notifications" in self.tab_buttons:
             n = getattr(self, "unread", 0)
