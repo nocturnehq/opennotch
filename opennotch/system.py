@@ -265,8 +265,22 @@ class NetMeter:
         return max(0, rx - prx) / dt, max(0, tx - ptx) / dt
 
 
-def human_rate(bps):
+def human_rate(bps, bits=False):
+    if bits:
+        bps = bps * 8
+        for unit in ("b/s", "kb/s", "Mb/s"):
+            if bps < 1000 or unit == "Mb/s":
+                return f"{bps:.0f} {unit}" if unit == "b/s" else f"{bps:.1f} {unit}"
+            bps /= 1000
     for unit in ("B/s", "KB/s", "MB/s"):
         if bps < 1000 or unit == "MB/s":
             return f"{bps:.0f} {unit}" if unit == "B/s" else f"{bps:.1f} {unit}"
         bps /= 1000
+
+
+def format_clock(fmt="system", lt=None):
+    """Format local time according to 'system' | '24h' | '12h'."""
+    lt = lt or time.localtime()
+    if fmt == "12h":
+        return time.strftime("%-I:%M %p", lt)
+    return time.strftime("%H:%M", lt)

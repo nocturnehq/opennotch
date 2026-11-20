@@ -82,8 +82,22 @@ DEFAULTS = {
     "media_source_apps": "",
     "record_pc_sound": True,
     "game_strip_everywhere": False,
+    "overlay_cpu": True,
+    "overlay_gpu": True,
+    "overlay_ram": True,
     "overlay_network": True,
+    "overlay_upload": False,
     "overlay_clock": True,
+    "network_in_bits": False,
+    "time_format": "system",
+    "day_clock_size": 100,
+    "day_clock_color": "auto",
+    "privacy_ignored_apps": "",
+    "chat_opacity": 86,
+    "chat_text_size": 11,
+    "chat_popups": True,
+    "reminder_sound": "once",
+    "sites_watch": "",
     "show_bluetooth_hud": True,
     "show_lock_keys_hud": True,
     "show_call_activity": True,
@@ -157,10 +171,15 @@ CHOICES = {"language": ("auto", "en", "el"), "alt_tab_style": ("ring", "fan", "f
            "clipboard_layout": ("cards", "list"), "motion": ("fluid", "balanced", "battery"), "open_on": ("last", "music"), "visualizer": ("pixels", "bars"),
            "font": ("Nunito", "Geist", "Inter", "Roboto", "Noto Sans", "Ubuntu", "SF Pro Text"),
            "music_background": ("album", "black"), "anim_speed": ("relaxed", "normal", "quick"),
-           "media_source_mode": ("all", "allow", "ignore")}
+           "media_source_mode": ("all", "allow", "ignore"),
+           "time_format": ("system", "24h", "12h"),
+           "day_clock_color": ("auto", "white", "black"),
+           "reminder_sound": ("once", "repeat", "off")}
 BOOLS = ("lyrics", "volume_popups", "ask_claude", "desktop_widgets", "reverse_scroll", "show_volume_hud",
          "show_brightness_hud", "show_battery_hud", "show_battery_estimate", "show_mic_hud", "title_in_pill",
-         "record_pc_sound", "game_strip_everywhere", "overlay_network", "overlay_clock", "show_bluetooth_hud", "show_lock_keys_hud",
+         "record_pc_sound", "game_strip_everywhere", "overlay_cpu", "overlay_gpu", "overlay_ram",
+         "overlay_network", "overlay_upload", "overlay_clock", "network_in_bits", "chat_popups",
+         "show_bluetooth_hud", "show_lock_keys_hud",
          "show_call_activity", "mirror_notifications", "notifications_panel",
          "notice_clock_time", "shelf_enabled", "clipboard_enabled", "controls_panel", "show_date_widget",
          "show_timer_widget", "show_weather_widget", "show_stats_widget", "show_battery_widget", "show_storage_widget", "show_upnext_widget", "show_clock_widget", "show_nowplaying_widget", "show_notes_widget",
@@ -192,6 +211,9 @@ RANGES = {
     "open_size": (80, 140),
     "notification_seconds": (1, 15),
     "obs_port": (1, 65535),
+    "day_clock_size": (60, 160),
+    "chat_opacity": (40, 100),
+    "chat_text_size": (10, 20),
 }
 
 
@@ -219,8 +241,8 @@ def validate(raw):
             cfg[key] = raw[key]
     for key, limit in (("calendar_file", 4096), ("live_wallpaper_file", 4096), ("obs_password", 500),
                        ("media_source_apps", 500), ("countdown_title", 80), ("countdown_date", 32),
-                       ("ping_host", 120), ("currency_watch", 64), ("photos_folder", 4096),
-                       ("launch_apps", 500), ("app_rules", 500)):
+                       ("ping_host", 120), ("sites_watch", 200), ("currency_watch", 64), ("photos_folder", 4096),
+                       ("launch_apps", 500), ("app_rules", 500), ("privacy_ignored_apps", 500)):
         value = raw.get(key)
         if isinstance(value, str) and len(value) <= limit and "\x00" not in value:
             cfg[key] = value

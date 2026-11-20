@@ -384,7 +384,7 @@ def build_countdown_widget(cfg):
     return box, refresh
 
 
-def build_reminders_widget(want_keyboard, on_fire):
+def build_reminders_widget(want_keyboard, on_fire, sound="once"):
     store = ReminderStore()
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     box.pack_start(_lbl("Reminders", "label", ellipsize=False), False, False, 0)
@@ -406,7 +406,10 @@ def build_reminders_widget(want_keyboard, on_fire):
 
     def check_due():
         for item in store.pop_due():
-            play_chime()
+            if sound != "off":
+                play_chime()
+                if sound == "repeat":
+                    GLib.timeout_add(900, lambda: (play_chime(), False)[1])
             on_fire(item["text"])
             refresh()
         return True
@@ -417,9 +420,25 @@ def build_reminders_widget(want_keyboard, on_fire):
     return box
 
 
+def probe_site(url):
+    """Return HTTP status code for a watched URL, or None on failure."""
+    raw = (url or "").strip()
+    if not raw:
+        return None
+    if not raw.startswith(("http://", "https://")):
+        raw = "https://" + raw
+    try:
+        req = urllib.request.Request(raw, method="HEAD", headers={"User-Agent": "OpenNotch/1"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            return r.status
+    except (OSError, urllib.error.URLError, ValueError):
+        return None
+
+
 def build_ping_widget(cfg):
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
     host = cfg.get("ping_host") or "1.1.1.1"
+    site = (cfg.get("sites_watch") or "").strip()
     box.pack_start(_lbl("Ping", "label", ellipsize=False), False, False, 0)
     val = _lbl("–", "bignum", ellipsize=False)
     sub = _lbl(host, "dim")
@@ -429,9 +448,13 @@ def build_ping_widget(cfg):
     def refresh():
         def worker():
             ms = probe_ping(host)
+            code = probe_site(site) if site else None
             def apply():
                 val.set_text(f"{ms:.0f} ms" if ms is not None else "Off")
-                sub.set_text(f"Online · {host}" if ms is not None else f"Unreachable · {host}")
+                base = f"Online · {host}" if ms is not None else f"Unreachable · {host}"
+                if site:
+                    base += f" · HTTP {code}" if code else " · Site down"
+                sub.set_text(base)
                 return False
             GLib.idle_add(apply)
         threading.Thread(target=worker, daemon=True).start()

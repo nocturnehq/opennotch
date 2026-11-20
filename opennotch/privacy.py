@@ -5,7 +5,8 @@ import shutil
 from gi.repository import Gio, GLib
 
 
-def active_video(objects):
+def active_video(objects, ignored=""):
+    ignore_tokens = [t.strip().lower() for t in (ignored or "").split(",") if t.strip()]
     active = set()
     for node in objects:
         if not isinstance(node, dict) or node.get("type") != "PipeWire:Interface:Node":
@@ -16,6 +17,10 @@ def active_video(objects):
         props = info.get("props") or {}
         if not isinstance(props, dict):
             continue
+        if ignore_tokens:
+            ident = " ".join(str(props.get(k, "")) for k in ("application.name", "node.name", "node.description")).lower()
+            if any(t in ident for t in ignore_tokens):
+                continue
         media_class = str(props.get("media.class", "")).casefold()
         role = str(props.get("media.role", "")).casefold()
         factory = str(props.get("factory.name", "")).casefold()
@@ -31,8 +36,9 @@ def active_video(objects):
 
 
 class VideoPrivacyWatch:
-    def __init__(self, changed):
+    def __init__(self, changed, ignored=""):
         self.changed = changed
+        self.ignored = ignored
         self.command = shutil.which("pw-dump")
         self.process = None
         self.timeout = 0
@@ -63,7 +69,7 @@ class VideoPrivacyWatch:
         try:
             _, output, _ = process.communicate_utf8_finish(result)
             nodes = json.loads(output) if process.get_successful() else []
-            active = active_video(nodes) if isinstance(nodes, list) else set()
+            active = active_video(nodes, self.ignored) if isinstance(nodes, list) else set()
         except (GLib.Error, ValueError):
             active = set()
         self.process = None

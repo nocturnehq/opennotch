@@ -340,10 +340,30 @@ def test_panels_and_rules():
     assert cfg["launcher_panel"] and cfg["camera_panel"] and cfg["chat_overlay"] and cfg["app_rules"] == "vlc:hide"
 
 
+def test_parity_settings():
+    import time as _t
+    from .privacy import active_video
+    from .system import format_clock, human_rate
+
+    assert human_rate(125_000, bits=False) == "125.0 KB/s"
+    assert human_rate(125_000, bits=True) == "1.0 Mb/s"
+    lt = _t.struct_time((2026, 11, 20, 14, 5, 0, 4, 324, 0))
+    assert format_clock("24h", lt) == "14:05" and format_clock("12h", lt) == "2:05 PM"
+    nodes = [{"type": "PipeWire:Interface:Node", "info": {"state": "running", "props": {
+        "media.class": "Video/Source", "media.role": "Camera", "application.name": "OBS Studio"}}}]
+    assert active_video(nodes) == {"Camera"}
+    assert active_video(nodes, ignored="obs") == set()
+    cfg = config.validate({"network_in_bits": True, "time_format": "12h", "day_clock_size": 140,
+                           "day_clock_color": "black", "chat_opacity": 75, "chat_text_size": 14,
+                           "reminder_sound": "repeat", "overlay_upload": True, "sites_watch": "example.com"})
+    assert cfg["network_in_bits"] and cfg["time_format"] == "12h" and cfg["day_clock_size"] == 140
+    assert cfg["day_clock_color"] == "black" and cfg["chat_opacity"] == 75 and cfg["reminder_sound"] == "repeat"
+
+
 def main():
     tests = [("config loader", test_config), ("lyrics parser", test_lyrics), ("clipboard store", test_clipstore),
              ("socket protocol", test_protocol), ("mic recording parser", lambda _t: test_source_outputs()),
-             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1()), ("extra widgets", test_extra_widgets), ("panels & app rules", lambda _t: test_panels_and_rules())]
+             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1()), ("extra widgets", test_extra_widgets), ("panels & app rules", lambda _t: test_panels_and_rules()), ("notchpixel parity settings", lambda _t: test_parity_settings())]
     failed = 0
     for name, fn in tests:
         with tempfile.TemporaryDirectory() as tmp:

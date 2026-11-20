@@ -129,13 +129,19 @@ class DesktopWidgets(Gtk.Window):
         W, H = self.geo.width, self.geo.height
 
         # ---- the day, huge and faded, across the upper third
-        ink = (0.13, 0.16, 0.20) if self.dark_ink else (1, 1, 1)
+        cfg = self.notch.cfg
+        col = cfg.get("day_clock_color", "auto")
+        use_dark = (col == "black") or (col == "auto" and self.dark_ink)
+        ink = (0.13, 0.16, 0.20) if use_dark else (1, 1, 1)
+        scale = cfg.get("day_clock_size", 100) / 100.0
+        day_px = max(60, round(150 * scale))
+        sub_px = max(11, round(17 * scale))
         day = time.strftime("%A").upper()
-        text(cr, day, "SF Pro Display Thin 150px", 0, H * 0.12, ink + (0.55 if self.dark_ink else 0.42,), spacing=34,
-             align="center", width=W)
-        stamp = time.strftime("%-d %B %Y").upper() + "   ·   " + time.strftime("%H:%M")
-        text(cr, stamp, "SF Pro Text Medium 17px", 0, H * 0.12 + 200, ink + (0.8,), spacing=6, align="center",
-             width=W)
+        text(cr, day, f"SF Pro Display Thin {day_px}px", 0, H * 0.12, ink + (0.55 if use_dark else 0.42,),
+             spacing=round(34 * scale), align="center", width=W)
+        stamp = time.strftime("%-d %B %Y").upper() + "   ·   " + system.format_clock(cfg.get("time_format", "system"))
+        text(cr, stamp, f"SF Pro Text Medium {sub_px}px", 0, H * 0.12 + round(200 * scale), ink + (0.8,),
+             spacing=6, align="center", width=W)
 
         # ---- glass cards on the right
         x, y = W - CARD_W - MARGIN, H * 0.42

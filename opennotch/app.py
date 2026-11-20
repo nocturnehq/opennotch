@@ -875,7 +875,7 @@ class Notch(Gtk.Window):
         self._watch_brightness()
         self.activity_watch = ActivityWatch(self.cfg, self._show_activity)
         if cfg["show_privacy_indicator"]:
-            self.privacy_watch = VideoPrivacyWatch(self._set_video_privacy)
+            self.privacy_watch = VideoPrivacyWatch(self._set_video_privacy, cfg["privacy_ignored_apps"])
         if cfg["resting"] == "pet":
             from .pet import IdleClock
 
@@ -1498,7 +1498,8 @@ class Notch(Gtk.Window):
             cards.append(("countdown", card(cd_box)))
         if self.cfg["show_reminders_widget"]:
             cards.append(("reminders", card(extra_widgets.build_reminders_widget(
-                self._want_keyboard, lambda msg: self.show_toast(msg, "alarm-symbolic", 6)))))
+                self._want_keyboard, lambda msg: self.show_toast(msg, "alarm-symbolic", 6),
+                sound=self.cfg["reminder_sound"]))))
         if self.cfg["show_ping_widget"]:
             cards.append(("ping", card(extra_widgets.build_ping_widget(self.cfg))))
         if self.cfg["show_currency_widget"]:
@@ -2399,13 +2400,23 @@ class Notch(Gtk.Window):
                 value = None
             return f"{name} {'–' if value is None else f'{value:.0f}%'}"
         # shortcut: no FPS on X11 without hooking the game (MangoHud); add it if a reader turns up
-        parts = [pct("CPU", self.cpu.percent), pct("GPU", system.gpu_percent), pct("RAM", system.ram_percent)]
-        if self.cfg["overlay_network"] and getattr(self, "net", None) is not None:
-            rx, _tx = self.net.rates()
-            parts.append(f"↓ {system.human_rate(rx)}")
+        parts = []
+        if self.cfg["overlay_cpu"]:
+            parts.append(pct("CPU", self.cpu.percent))
+        if self.cfg["overlay_gpu"]:
+            parts.append(pct("GPU", system.gpu_percent))
+        if self.cfg["overlay_ram"]:
+            parts.append(pct("RAM", system.ram_percent))
+        bits = self.cfg["network_in_bits"]
+        if (self.cfg["overlay_network"] or self.cfg["overlay_upload"]) and getattr(self, "net", None) is not None:
+            rx, tx = self.net.rates()
+            if self.cfg["overlay_network"]:
+                parts.append(f"↓ {system.human_rate(rx, bits)}")
+            if self.cfg["overlay_upload"]:
+                parts.append(f"↑ {system.human_rate(tx, bits)}")
         if self.cfg["overlay_clock"]:
-            parts.append(time.strftime("%H:%M"))
-        self.game_label.set_text(("\n" if self.side else "   ").join(parts))
+            parts.append(system.format_clock(self.cfg["time_format"]))
+        self.game_label.set_text(("\n" if self.side else "   ").join(parts or ["OpenNotch"]))
         return True
 
     def _tick_widgets(self):
@@ -2484,7 +2495,8 @@ class Notch(Gtk.Window):
             pass
         put("GPU", system.gpu_percent())
         down, up = self.net.rates()
-        self.net_label.set_text(f"↓ {system.human_rate(down)}   ↑ {system.human_rate(up)}")
+        bits = self.cfg["network_in_bits"]
+        self.net_label.set_text(f"↓ {system.human_rate(down, bits)}   ↑ {system.human_rate(up, bits)}")
         self._tick_widgets()
         self._poll_position()
         return True
@@ -2720,17 +2732,17 @@ class Notch(Gtk.Window):
     def _toggle_chat_drawer(self):
         if self.chat_drawer is None:
             from .chatdrawer import ChatDrawer
-            self.chat_drawer = ChatDrawer(self.cfg["font"])
+            self.chat_drawer = ChatDrawer(self.cfg["font"], self.cfg["chat_opacity"], self.cfg["chat_text_size"])
         self.chat_drawer.toggle()
 
     def _on_chat_message(self, author, text):
         if self.cfg["chat_overlay"]:
             if self.chat_drawer is None:
                 from .chatdrawer import ChatDrawer
-                self.chat_drawer = ChatDrawer(self.cfg["font"])
+                self.chat_drawer = ChatDrawer(self.cfg["font"], self.cfg["chat_opacity"], self.cfg["chat_text_size"])
                 self.chat_drawer.show_all()
             self.chat_drawer.push("live", author, text[:240])
-        elif len(self.toasts) < 2:  # don't let a busy chat queue up behind other notices
+        if self.cfg["chat_popups"] and not self.cfg["chat_overlay"] and len(self.toasts) < 2:
             self.show_toast(author, "info", 4, text[:200])
 
     def _toggle_obs_recording(self):
@@ -2855,7 +2867,7 @@ class Notch(Gtk.Window):
 
     # ======================================================================= pill
     def _tick_clock(self):
-        self.pill_time.set_text(time.strftime("%H:%M"))
+        self.pill_time.set_text(system.format_clock(self.cfg["time_format"]))
         bat = system.battery()
         show = self.cfg["resting"] == "clock"
         self.pill_batt.set_visible(show and bool(bat))

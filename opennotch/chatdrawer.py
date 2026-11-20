@@ -14,8 +14,9 @@ MAX_LINES = 50
 class ChatDrawer(Gtk.Window):
     """Draggable floating overlay for live Twitch and YouTube chat."""
 
-    def __init__(self, font="SF Pro Text"):
+    def __init__(self, font="SF Pro Text", opacity=86, text_size=11):
         super().__init__(title="OpenNotch Chat")
+        self.bg_alpha = max(0.4, min(1.0, opacity / 100.0))
         self.set_name("opennotch-chat")
         self.set_decorated(False)
         self.set_keep_above(True)
@@ -32,7 +33,7 @@ class ChatDrawer(Gtk.Window):
 
         prov = Gtk.CssProvider()
         prov.load_from_data((
-            f"#opennotch-chat * {{ color: #ffffff; font-family: '{font}', 'SF Pro Text', sans-serif; font-size: 11px; }}"
+            f"#opennotch-chat * {{ color: #ffffff; font-family: '{font}', 'SF Pro Text', sans-serif; font-size: {int(text_size)}px; }}"
             "#opennotch-chat .head { font-family: 'SF Pro Display', sans-serif; font-size: 14px; font-weight: 600; }"
             "#opennotch-chat .dim { color: rgba(255,255,255,0.55); }"
             "#opennotch-chat button { background: rgba(255,255,255,0.08); border: none; border-radius: 99px; padding: 3px 9px; }"
@@ -89,7 +90,7 @@ class ChatDrawer(Gtk.Window):
         cr.arc(r, h - r, r, 1.5708, 3.1416)
         cr.arc(r, r, r, 3.1416, 4.7124)
         cr.close_path()
-        cr.set_source_rgba(*design.INK, 0.86)
+        cr.set_source_rgba(*design.INK, self.bg_alpha)
         cr.fill_preserve()
         cr.set_source_rgba(1, 1, 1, 0.16)
         cr.set_line_width(1.0)
