@@ -23,8 +23,7 @@ from . import CONFIG_DIR, config, design, i18n  # noqa: E402
 CFG_PATH = os.path.join(CONFIG_DIR, "config.json")
 AUTOSTART = os.path.join(GLib.get_user_config_dir(), "autostart", "opennotch.desktop")
 
-ACCENTS = ["#ffffff", "#0a84ff", "#3b82f6", "#a855f7", "#ec4899", "#f59e0b", "#22c55e", "#38bdf8",
-           "#f9a8d4", "#c4b5fd", "#fdba74", "#f9a8d4"]
+ACCENTS = ["#ffffff", "#d4d4d8", "#60a5fa", "#38bdf8", "#a78bfa", "#34d399"]
 
 
 # ---- the catalogue: (section, icon, [(group, [setting])]) -----------------------------------------

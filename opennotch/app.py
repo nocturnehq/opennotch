@@ -99,7 +99,8 @@ CSS = """
 #notch button.tab:hover {{ background: rgba(255,255,255,0.09); }}
 #notch button.tab.active {{ background: rgba(255,255,255,0.16); }}
 #notch button.tab.active label, #notch button.tab:hover label {{ color: #ffffff; }}
-#notch button.on {{ background: #ff453a; }}
+#notch button.on {{ background: #ffffff; color: #0b0b0c; }}
+#notch button.on * {{ color: #0b0b0c; }}
 #notch scale {{ padding: 6px 0; min-height: 0; }}
 #notch scale trough {{ background: rgba(255,255,255,0.12); border: none; border-radius: 3px; min-height: 5px; }}
 #notch scale highlight {{ background: #ffffff; border: none; border-radius: 3px; }}
@@ -1913,11 +1914,11 @@ class Notch(Gtk.Window):
         rgb = self._card_rgb()
         g = cairo.LinearGradient(x0, y0, x0 + w, y0 + h)
         if rgb:
-            g.add_color_stop_rgba(0, *(c * 0.55 for c in rgb), 0.86)
-            g.add_color_stop_rgba(0.6, *(c * 0.18 for c in rgb), 0.84)
-            g.add_color_stop_rgba(1, 0.03, 0.03, 0.05, 0.86)
-        else:  # smoked glass: ink with a trace of warmth, deeper toward the bottom
-            g.add_color_stop_rgba(0, 0.075, 0.068, 0.060, 0.62)
+            g.add_color_stop_rgba(0, *(c * 0.24 for c in rgb), 0.76)
+            g.add_color_stop_rgba(0.6, *(c * 0.10 for c in rgb), 0.78)
+            g.add_color_stop_rgba(1, *design.INK, 0.84)
+        else:  # smoked liquid glass: pure neutral black tint, deeper toward the bottom
+            g.add_color_stop_rgba(0, 0.052, 0.054, 0.060, 0.64)
             g.add_color_stop_rgba(1, *design.INK, 0.80)
         cr.set_source(g)
         cr.paint()

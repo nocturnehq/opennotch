@@ -17,16 +17,7 @@ FILL = "rgba(255,255,255,0.06)"      # frosted glass tile
 FILL_HOVER = "rgba(255,255,255,0.10)"
 CHAMPAGNE = "#ffffff"                # the accent: active tab, lit controls, progress are plain white (user's pick)
 CHAMPAGNE_RGB = (1.0, 1.0, 1.0)
-# playful look: every widget, tab and control has its own bright colour; text on them is dark plum
-ON_COLOR = "#1d1424"
-COLORS = {"sky": "#7cc6ff", "coral": "#ff8a7a", "sun": "#ffd45e", "mint": "#6fe3c1", "lime": "#c4f06a",
-          "lilac": "#b9a3ff", "pink": "#ff8fc7", "peach": "#ffb36b", "cream": "#fff1a8"}
-WIDGET_COLORS = {"date": "sky", "timer": "coral", "weather": "sun", "stats": "mint", "battery": "lime",
-                 "storage": "lilac", "upnext": "pink", "clock": "peach", "nowplaying": "pink", "notes": "cream"}
-TAB_COLORS = {"music": "pink", "web": "sky", "notifications": "sun", "shelf": "peach", "clipboard": "lilac",
-              "overview": "mint", "controls": "lime", "claude": "coral"}
-TILE_COLORS = {"wifi": "sky", "bt": "lilac", "night": "peach", "dnd": "lime", "mute": "coral", "mic": "mint"}
-DANGER = "#ff5a4f"
+DANGER = "#e5484d"
 OK = "#5fd38a"
 
 # ---- shape and type
@@ -186,64 +177,6 @@ def settings_css(font="Geist"):
 """.format(**t)
 
 
-def playful_css():
-    """The playful layer, after island_css: bright tiles, colour blob tabs, chunky shapes."""
-    c, on = COLORS, ON_COLOR
-    rules = [f"#notch .card, #notch frame.tile, #notch .notecard {{ border-radius: {RADIUS_TILE}px; }}",
-             f"#notch .tabbar {{ background: rgba(255,255,255,0.06); border: none; padding: 4px 6px; }}",
-             f"#notch button.tabicon {{ padding: 7px 11px; }}",
-             f"#notch button.round.play.bigplay {{ background-color: {c['pink']}; border-color: {c['pink']}; min-width: 46px; min-height: 46px; }}",
-             f"#notch button.round.play.bigplay image {{ color: {on}; }}",
-             f"#notch scale.big trough {{ background: rgba(255,255,255,0.06); border: none; border-radius: 22px; }}",
-             f"#notch scale.big highlight {{ background: {c['sky']}; border-radius: 22px; }}",
-             f"#notch button.chip {{ border-color: {c['pink']}; }}",
-             f"#notch button.chip label {{ color: {c['pink']}; font-weight: 700; }}",
-             f"#notch .toasticon.ok {{ background: {c['mint']}; border: none; color: {on}; }}",
-             f"#notch .toasticon.fail {{ background: {c['coral']}; border: none; color: {on}; }}",
-             f"#notch .toasticon.info {{ background: {c['sky']}; border: none; color: {on}; }}",
-             f"#notch .song {{ font-size: 22px; font-weight: 800; }}",
-             f"#notch .big, #notch .bigtime, #notch .bignum, #notch .bigtemp, #notch .temp {{ font-weight: 800; letter-spacing: -0.01em; }}",
-             f"#notch .label, #notch .apptag, #notch .biglabel {{ font-weight: 800; }}",
-             f"#notch .wing {{ font-weight: 800; }}",
-             f"#notch .title {{ font-weight: 800; }}",
-             f"#notch .notecard {{ background: rgba(185,163,255,0.10); border: none; }}",
-             f"#notch .clipcard, #notch .cliprow {{ border: none; background: rgba(255,255,255,0.06); }}",
-             f"#notch .clipcard:hover, #notch .clipcard.pinned {{ background: {c['lilac']}; }}",
-             f"#notch .clipcard:hover *, #notch .clipcard.pinned * {{ color: {on}; }}",
-             f"#notch button.clipfilter:checked, #notch button.seg.active {{ background: {c['sun']}; border-color: {c['sun']}; }}",
-             f"#notch button.clipfilter:checked label, #notch button.seg.active label {{ color: {on}; }}",
-             f"#notch entry {{ border-radius: 99px; }}",
-             f"#notch .mono {{ font-family: \"Nunito\", sans-serif; font-size: 11px; font-weight: 700; }}",
-             f"#notch tooltip, tooltip {{ background: {c['lilac']}; border-radius: 12px; }}",
-             f"#notch tooltip *, tooltip * {{ color: {on}; font-weight: 700; }}",
-             f"#notch .badge {{ background: {c['coral']}; color: {on}; }}",
-             f"#notch entry:focus {{ border-color: {c['pink']}; }}"]
-    for name, colour in WIDGET_COLORS.items():
-        col = c[colour]
-        rules += [f"#notch .w-{name} {{ background: {col}; border: none; }}",
-                  f"#notch .w-{name} *, #notch .w-{name} .dim, #notch .w-{name} .label {{ color: {on}; }}",
-                  f"#notch .w-{name} .dim, #notch .w-{name} .label, #notch .w-{name} .time {{ color: rgba(29,20,36,0.62); }}",
-                  f"#notch .w-{name} button.round {{ border-color: rgba(29,20,36,0.35); }}",
-                  f"#notch .w-{name} button.round.play {{ background-color: {on}; border-color: {on}; }}",
-                  f"#notch .w-{name} button.round.play image {{ color: {col}; }}",
-                  f"#notch .w-{name} .today {{ border-color: {on}; }}",
-                  f"#notch .w-{name} levelbar trough {{ background: rgba(29,20,36,0.15); }}",
-                  f"#notch .w-{name} levelbar block:not(.empty) {{ background-color: {on}; }}",
-                  f"#notch .w-{name} textview.notes, #notch .w-{name} textview.notes text {{ color: {on}; caret-color: {on}; }}"]
-    for name, colour in TAB_COLORS.items():
-        rules += [f"#notch button.t-{name} image {{ color: {c[colour]}; }}",
-                  f"#notch button.t-{name}.active {{ background-color: {c[colour]}; }}",
-                  f"#notch button.t-{name}.active image {{ color: {on}; }}"]
-    for name, colour in TILE_COLORS.items():
-        r, g, b = (int(c[colour][i:i + 2], 16) for i in (1, 3, 5))
-        rules += [f"#notch button.qtile.q-{name} {{ background: rgba({r},{g},{b},0.13); border: none; }}",
-                  f"#notch button.qtile.q-{name}:hover {{ background: rgba({r},{g},{b},0.22); }}",
-                  f"#notch button.qtile.q-{name} image {{ color: {c[colour]}; }}",
-                  f"#notch button.qtile.q-{name}.on {{ background: {c[colour]}; border-color: {c[colour]}; }}",
-                  f"#notch button.qtile.q-{name}.on *, #notch button.qtile.q-{name}.on image {{ color: {on}; }}"]
-    return "\n".join(rules) + "\n"
-
-
 def type_css():
     """Three sizes only: 32 px bold numbers (SF Pro Display), 14 px semibold titles, 11 px for everything else."""
     return f"""
@@ -261,28 +194,4 @@ def type_css():
 #notch button.round.play.bigplay image {{ color: #000000; }}
 #notch button.chip label {{ font-size: 11px; }}
 #notch frame.tile, #notch .notecard, #notch .card {{ border-radius: {RADIUS_TILE}px; }}
-"""
-
-
-def playful_settings_css():
-    c, on = COLORS, ON_COLOR
-    return f"""
-#glass .eyebrow {{ color: {c['coral']}; }}
-#glass .h1 {{ font-weight: 900; letter-spacing: -0.01em; }}
-#glass .stitle {{ font-weight: 700; }}
-#glass row.side:selected {{ background: {c['lilac']}; border-color: {c['lilac']}; }}
-#glass row.side:selected * {{ color: {on}; }}
-#glass button.seg.active {{ background: {c['sun']}; }}
-#glass button.seg.active label {{ color: {on}; }}
-#glass switch:checked {{ background: {c['mint']}; border-color: {c['mint']}; }}
-#glass scale highlight {{ background: {c['pink']}; }}
-#glass entry:focus {{ border-color: {c['pink']}; }}
-#glass .row {{ border-bottom: none; }}
-#glass row.side {{ border-radius: 14px; }}
-#glass row.side:hover {{ background: rgba(185,163,255,0.14); }}
-#glass button.seg {{ border-radius: 99px; }}
-#glass .segbar {{ border-radius: 99px; background: rgba(255,255,255,0.05); border: none; }}
-#glass switch {{ min-height: 26px; }}
-#glass .soon {{ border-color: {c['peach']}; color: {c['peach']}; }}
-#glass button.swatch.active {{ box-shadow: 0 0 0 2px #140f19, 0 0 0 4px {c['pink']}; }}
 """

@@ -194,6 +194,7 @@ class DockBackground(Gtk.Window):
         self._fullscreen = False
         self._last_dbus_check = 0.0
         self._last_stack_check = 0.0
+        self._last_draw_key = None
 
         self.connect("draw", self._draw)
         self.connect("realize", self._on_realize)
@@ -201,7 +202,7 @@ class DockBackground(Gtk.Window):
 
         self._place()
         self._poll()
-        self.poll_id = GLib.timeout_add(80, self._poll)
+        self.poll_id = GLib.timeout_add(110, self._poll)
 
     def _default_bar_h(self):
         # OpenNotch-Black: TopPadding=3 + BottomPadding=1 (tenths of IconSize) + border (~0.43 * icon_size)
@@ -612,15 +613,23 @@ class DockBackground(Gtk.Window):
                 self.kwin_blur.set_rects(None)
             self.hide()
 
+    def _draw_key(self):
+        return (round(self.base_left), round(self.base_right), self.base_h,
+                round(self.hide_progress, 3), round(self.wave_amp, 3), round(self.wave_x),
+                self.zoom_enabled, self.zoom_percent, self.reduce_motion)
+
     def _poll(self):
         if self.closed:
             return False
         now = time.monotonic()
         active = self._update_state(now)
+        key = self._draw_key()
         if active:
             self._ensure_tick()
+            self._last_draw_key = key
             self.queue_draw()
-        elif self.get_visible():
+        elif self.get_visible() and key != self._last_draw_key:
+            self._last_draw_key = key
             self.queue_draw()
         return True
 
@@ -630,7 +639,9 @@ class DockBackground(Gtk.Window):
             return False
         now = time.monotonic()
         active = self._update_state(now)
-        if self.get_visible():
+        key = self._draw_key()
+        if self.get_visible() and (active or key != self._last_draw_key):
+            self._last_draw_key = key
             self.queue_draw()
         if not active:
             self.tick_id = 0
@@ -684,10 +695,10 @@ class DockBackground(Gtk.Window):
         g = cairo.LinearGradient(0, top_y, 0, bottom)
         if glassy:
             if self.live_glass or self.glass is not None:
-                g.add_color_stop_rgba(0, 0.065, 0.062, 0.060, 0.64)
+                g.add_color_stop_rgba(0, 0.048, 0.050, 0.056, 0.64)
                 g.add_color_stop_rgba(1, *design.INK, 0.78)
             else:
-                g.add_color_stop_rgba(0, 0.055, 0.055, 0.060, 0.84)
+                g.add_color_stop_rgba(0, 0.048, 0.050, 0.056, 0.84)
                 g.add_color_stop_rgba(1, *design.INK, 0.92)
         else:
             g.add_color_stop_rgba(0, *design.INK, 0.96)
