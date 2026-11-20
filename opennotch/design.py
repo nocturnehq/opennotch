@@ -58,6 +58,7 @@ def island_css(font):
              gold=CHAMPAGNE, ease=CSS_EASE, fast=CSS_FAST, slow=CSS_SLOW, rt=RADIUS_TILE, rc=RADIUS_CONTROL,
              track=TRACKING_LABEL, font=font, ink="rgb(%d,%d,%d)" % tuple(round(c * 255) for c in INK_RAISED))
     return """
+@define-color placeholder_text_color rgba(255, 255, 255, 0.45);
 #notch * {{ color: {text}; font-family: "{font}", "Geist", "SF Pro Text", sans-serif; }}
 #notch .card {{ background: transparent; border: 1px solid {hair}; border-radius: {rt}px; }}
 #notch frame.tile, #notch .notecard {{ background: {fill}; border: 1px solid {hair}; border-radius: {rt}px; }}
