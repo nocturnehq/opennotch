@@ -46,7 +46,7 @@ ICON_GLYPHS = {"ok": "✓", "fail": "✕", "info": "i"}
 TAB_TITLES = {"music": "Music", "web": "Web", "overview": "Overview", "controls": "Controls", "clipboard": "Clipboard",
               "shelf": "Shelf", "notifications": "Notifications", "launcher": "Launcher", "camera": "Camera", "claude": "Ask Claude"}
 # each tab gets a card sized to its content, so there is no dead space; the card morphs between them
-TAB_SIZES = {"music": (480, 178), "web": (670, 430), "overview": (560, 250), "controls": (580, 282), "clipboard": (400, 196),
+TAB_SIZES = {"music": (480, 152), "web": (670, 430), "overview": (560, 250), "controls": (580, 282), "clipboard": (400, 196),
              "shelf": (480, 150), "notifications": (480, 150), "launcher": (520, 210), "camera": (380, 236), "claude": (520, 230)}
 TAB_ICONS = {"music": "audio-x-generic-symbolic", "web": "web-browser-symbolic", "overview": "x-office-calendar-symbolic",
              "controls": "multimedia-equalizer-symbolic", "clipboard": "edit-paste-symbolic",
@@ -555,61 +555,62 @@ class WaveSeek(Gtk.DrawingArea):
         w, h = self.get_allocated_width(), self.get_allocated_height()
         if w < 12:
             return
-        pad = 2.0
+        pad = 4.0
         span = w - 2 * pad
         ht = self.hover_t if (self.get_sensitive() and not self.unknown) else 0.0
-        bar_h = 4.5 + 3.0 * ht  # sleek 4.5 px resting -> 7.5 px hovered/dragging (iOS Dynamic Island)
-        cy = h / 2.0 + 3.0      # slightly below center to leave clean room for hover time pill
+        bar_h = 2.5 + 2.5 * ht  # NotchPixel sleek 2.5 px comet bar -> 5 px on hover
+        cy = h - 6.0
         by = cy - bar_h / 2.0
 
-        # Frosted liquid-glass capsule track
-        self._pill(cr, pad, by, span, bar_h)
-        cr.set_source_rgba(1, 1, 1, 0.14 + 0.08 * ht)
-        cr.fill_preserve()
-        cr.set_source_rgba(1, 1, 1, 0.16 + 0.08 * ht)
-        cr.set_line_width(0.8)
+        # Subtle full-width track
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cr.set_line_width(bar_h)
+        cr.set_source_rgba(1, 1, 1, 0.20 + 0.08 * ht)
+        cr.move_to(pad, cy)
+        cr.line_to(w - pad, cy)
         cr.stroke()
 
         frac = 0.0 if self.unknown else max(0.0, min(1.0, self.value / self.max))
-        fill_w = span * frac
+        x_now = pad + span * frac
 
         if self.unknown:
-            cr.set_source_rgba(1, 1, 1, 0.75)
-            cr.arc(pad + bar_h / 2.0, cy, bar_h * 0.38, 0, math.tau)
+            cr.set_source_rgba(1, 1, 1, 0.85)
+            cr.arc(pad, cy, 3.0, 0, math.tau)
             cr.fill()
             return
 
-        # Played fill clipped cleanly inside the glass track capsule
-        if fill_w > 0.5:
-            cr.save()
-            self._pill(cr, pad, by, span, bar_h)
-            cr.clip()
-            if self.comet:
-                fw = max(bar_h, fill_w) if frac > 0.001 else 0.0
-                self._pill(cr, pad, by, min(span, fw), bar_h)
-                g = cairo.LinearGradient(pad, by, pad, by + bar_h)
-                g.add_color_stop_rgba(0, 1, 1, 1, 0.98)
-                g.add_color_stop_rgba(1, 1, 1, 1, 0.84 + 0.12 * ht)
-                cr.set_source(g)
-                cr.fill()
-                # subtle specular highlight along top edge of the played bar
-                cr.set_source_rgba(1, 1, 1, 0.35)
-                cr.set_line_width(1.0)
-                cr.move_to(pad + bar_h / 2, by + 0.8)
-                cr.line_to(min(pad + span - bar_h / 2, pad + fill_w), by + 0.8)
-                cr.stroke()
-            else:
-                cr.set_line_cap(cairo.LINE_CAP_ROUND)
-                cr.set_line_width(max(2.6, bar_h * 0.42))
-                cr.set_source_rgba(1, 1, 1, 0.95)
-                cr.move_to(pad, cy)
-                x = pad
-                x_end = pad + fill_w
-                while x <= x_end:
-                    cr.line_to(x, cy + (bar_h * 0.28) * math.sin(x / 5.0 - self.phase))
-                    x += 1.5
-                cr.stroke()
-            cr.restore()
+        if self.comet:
+            # NotchPixel comet: fading luminous tail into a crisp glowing white playhead dot
+            tail = cairo.LinearGradient(pad, 0, max(pad + 1.0, x_now), 0)
+            tail.add_color_stop_rgba(0, 1, 1, 1, 0.12)
+            tail.add_color_stop_rgba(1, 1, 1, 1, 0.96)
+            cr.set_source(tail)
+            cr.set_line_width(bar_h)
+            cr.move_to(pad, cy)
+            cr.line_to(x_now, cy)
+            cr.stroke()
+            glow_r = 7.5 + 2.0 * ht
+            glow = cairo.RadialGradient(x_now, cy, 0, x_now, cy, glow_r)
+            glow.add_color_stop_rgba(0, 1, 1, 1, 0.55)
+            glow.add_color_stop_rgba(1, 1, 1, 1, 0.0)
+            cr.set_source(glow)
+            cr.arc(x_now, cy, glow_r, 0, math.tau)
+            cr.fill()
+            cr.set_source_rgb(1, 1, 1)
+            cr.arc(x_now, cy, 3.4 + 1.1 * ht, 0, math.tau)
+            cr.fill()
+        else:
+            cr.set_line_width(bar_h)
+            cr.set_source_rgba(1, 1, 1, 0.95)
+            cr.move_to(pad, cy)
+            x = pad
+            while x <= x_now:
+                cr.line_to(x, cy + 2.6 * math.sin(x / 4.8 - self.phase))
+                x += 1.5
+            cr.stroke()
+            cr.set_source_rgb(1, 1, 1)
+            cr.arc(x_now, cy, 3.5 + 1.0 * ht, 0, math.tau)
+            cr.fill()
 
         # Subtle hover scrub hairline + floating scrub-time pill tooltip
         if ht > 0.05 and self.get_sensitive():
@@ -1242,52 +1243,30 @@ class Notch(Gtk.Window):
         if hasattr(self, "W"):
             self._grow_window_for(w, h)
 
-    # ---- Music (Apple Dynamic Island layout: large art, inline scrub row, centered transport)
+    # ---- Music (NotchPixel 1-to-1 layout: art + meta + inline transport -> comet bar -> elapsed | volume | remaining)
     def _build_music(self):
         self.music_stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=160)
-        player = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, valign=Gtk.Align.CENTER)
+        player = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER)
 
-        # Top row: 82px rounded album art + title/artist/album + top-right live equalizer
-        head_row = Gtk.Box(spacing=14, valign=Gtk.Align.CENTER)
-        self.art = ArtView(82, 18)
-        head_row.pack_start(self.art, False, False, 0)
-        meta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3, valign=Gtk.Align.CENTER)
-        self.m_title = label("Nothing playing", "song", chars=26)
-        self.m_artist = label("Start a player to see it here", "dim", chars=32)
-        self.m_album = label("", "dim", chars=32)
+        # Top row: 64px art + Title/Artist + inline Prev / Play-Pause / Next
+        top_row = Gtk.Box(spacing=12, valign=Gtk.Align.CENTER)
+        self.art = ArtView(64, 14)
+        top_row.pack_start(self.art, False, False, 0)
+        meta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER)
+        self.m_title = label("Nothing playing", "song", chars=22)
+        self.m_artist = label("Start a player to see it here", "dim", chars=26)
+        self.m_album = label("", "dim", chars=26)
         self.m_album.set_no_show_all(True)
         for w in (self.m_title, self.m_artist, self.m_album):
             meta.pack_start(w, False, False, 0)
-        head_row.pack_start(meta, True, True, 0)
-        self.card_eq = Equaliser((1.0, 1.0, 1.0))
-        self.card_eq.pixels = self.cfg["visualizer"] == "pixels"
-        self.card_eq.set_valign(Gtk.Align.START)
-        self.card_eq.set_margin_top(6)
-        self.card_eq.set_no_show_all(True)
-        head_row.pack_end(self.card_eq, False, False, 2)
+        top_row.pack_start(meta, True, True, 0)
 
-        # Inline scrub row: elapsed time  [==== sleek glass bar ====]  duration
-        scrub_row = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
-        self.m_pos = label("0:00", "time", ellipsize=False)
-        self.m_pos.set_valign(Gtk.Align.CENTER)
-        self.m_pos.set_margin_top(5)
-        self.seek = WaveSeek(self._on_seek_value, reduce_motion=self.cfg["reduce_motion"])
-        self.seek.comet = self.cfg["progress"] == "comet"
-        self.m_len = label("0:00", "time", ellipsize=False, xalign=1)
-        self.m_len.set_valign(Gtk.Align.CENTER)
-        self.m_len.set_margin_top(5)
-        scrub_row.pack_start(self.m_pos, False, False, 0)
-        scrub_row.pack_start(self.seek, True, True, 0)
-        scrub_row.pack_end(self.m_len, False, False, 0)
-
-        # Bottom row: dead-center transport controls + subtle right-aligned Lyrics chip
-        ctrls = Gtk.Box(valign=Gtk.Align.CENTER)
-        transport = Gtk.Box(spacing=18, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        # Inline transport right of title/artist (clean NotchPixel white icons, no bulky blob)
+        transport = Gtk.Box(spacing=6, valign=Gtk.Align.CENTER)
         self.b_play = icon_button("media-playback-start-symbolic", "Play / pause",
-                                  lambda: self.mpris and self.mpris.call("PlayPause"), flat=False,
+                                  lambda: self.mpris and self.mpris.call("PlayPause"),
                                   size=Gtk.IconSize.LARGE_TOOLBAR)
-        for cls in ("round", "play", "bigplay"):
-            self.b_play.get_style_context().add_class(cls)
+        self.b_play.get_style_context().add_class("transport")
         for icon, tip, method in (("media-skip-backward-symbolic", "Previous", "Previous"), (None, None, None),
                                   ("media-skip-forward-symbolic", "Next", "Next")):
             if icon is None:
@@ -1297,17 +1276,39 @@ class Notch(Gtk.Window):
             b.get_style_context().add_class("transport")
             b.set_valign(Gtk.Align.CENTER)
             transport.pack_start(b, False, False, 0)
-        ctrls.set_center_widget(transport)
-        if self.cfg["lyrics"]:
-            lyr = Gtk.Button(label="Lyrics")
-            lyr.get_style_context().add_class("chip")
-            lyr.set_valign(Gtk.Align.CENTER)
-            lyr.set_can_focus(False)
-            lyr.set_tooltip_text("Synced lyrics from LRCLIB (sends the song's title and artist)")
-            lyr.connect("clicked", lambda *_: self._show_lyrics(True))
-            ctrls.pack_end(lyr, False, False, 0)
+        top_row.pack_end(transport, False, False, 0)
 
-        for w in (head_row, scrub_row, ctrls):
+        # Middle: full-width NotchPixel comet/wave scrub bar
+        self.seek = WaveSeek(self._on_seek_value, reduce_motion=self.cfg["reduce_motion"])
+        self.seek.comet = self.cfg["progress"] == "comet"
+
+        # Bottom row: elapsed left | inline volume slider center | remaining + lyrics right
+        foot = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
+        self.m_pos = label("0:00", "time", ellipsize=False)
+        self.m_len = label("0:00", "time", ellipsize=False, xalign=1)
+        foot.pack_start(self.m_pos, False, False, 0)
+
+        vol_box = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        vol_icon = Gtk.Image.new_from_icon_name("audio-volume-medium-symbolic", Gtk.IconSize.MENU)
+        self.m_vol = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 2)
+        self.m_vol.set_draw_value(False)
+        self.m_vol.set_can_focus(False)
+        self.m_vol.set_size_request(130, -1)
+        self.m_vol.connect("change-value", self._on_volume)
+        vol_box.pack_start(vol_icon, False, False, 0)
+        vol_box.pack_start(self.m_vol, False, False, 0)
+        foot.set_center_widget(vol_box)
+
+        right_foot = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
+        right_foot.pack_start(self.m_len, False, False, 0)
+        if self.cfg["lyrics"]:
+            lyr = icon_button("format-justify-left-symbolic", "Synced lyrics", lambda: self._show_lyrics(True),
+                              size=Gtk.IconSize.MENU)
+            lyr.get_style_context().add_class("transport")
+            right_foot.pack_start(lyr, False, False, 0)
+        foot.pack_end(right_foot, False, False, 0)
+
+        for w in (top_row, self.seek, foot):
             player.pack_start(w, False, False, 0)
         self.music_stack.add_named(player, "player")
 
@@ -2423,6 +2424,9 @@ class Notch(Gtk.Window):
             self.position_us = us
             self.seek.set_value(us / 1e6)
             self.m_pos.set_text(fmt_time(us / 1e6))
+            if not self.seek.unknown and self.seek.max > 0:
+                rem = max(0.0, self.seek.max - us / 1e6)
+                self.m_len.set_text("-" + fmt_time(rem))
             self._show_lyric_line(us / 1e6)
         if self.mpris:
             self.mpris.position(got)
@@ -2549,6 +2553,8 @@ class Notch(Gtk.Window):
             if v is not None:
                 self.vol.set_value(v)
                 self.vol_pct.set_text(f"{v}%")
+                if hasattr(self, "m_vol"):
+                    self.m_vol.set_value(v)
         b = extras.get_brightness()
         self.bright_row.set_visible(b is not None)
         if b is not None:
