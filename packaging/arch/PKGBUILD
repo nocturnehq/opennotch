@@ -1,0 +1,87 @@
+# Maintainer: Panos <panos@opennotch.local>
+pkgname=opennotch-git
+pkgver=0.1.0.r0
+pkgrel=1
+pkgdesc="Dynamic-Island-style notch, Now Playing bar, widgets, clipboard, shelf, and liquid-glass dock helper for Linux X11"
+arch=('any')
+url="https://github.com/opennotch/opennotch"
+license=('MIT')
+depends=(
+  'python'
+  'python-gobject'
+  'python-cairo'
+  'python-xlib'
+  'gtk3'
+  'libwnck3'
+  'libpulse'
+)
+optdepends=(
+  'libkeybinder3: global keyboard shortcuts (PrtSc, Alt+Tab, audio switcher)'
+  'webkit2gtk: built-in Web tab browser (YouTube Music, Spotify, ChatGPT, Claude)'
+  'plank: liquid-glass waving dock background and pet roaming'
+  'brightnessctl: fallback screen brightness control outside KDE/Cinnamon'
+  'ffmpeg: screen and microphone recording'
+  'gst-plugins-good: live camera mirror tab'
+  'gstreamer: live camera mirror tab'
+)
+makedepends=('git')
+provides=('opennotch')
+conflicts=('opennotch')
+source=("git+file://${PWD}/../..")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/opennotch"
+  printf "0.1.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+package() {
+  cd "$srcdir/opennotch"
+
+  install -dm755 "$pkgdir/usr/lib/opennotch"
+  cp -r opennotch "$pkgdir/usr/lib/opennotch/"
+  find "$pkgdir/usr/lib/opennotch" -name '__pycache__' -type d -exec rm -rf {} +
+
+  install -Dm755 bin/opennotch "$pkgdir/usr/bin/opennotch"
+  install -Dm644 opennotch.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/opennotch.svg"
+
+  install -dm755 "$pkgdir/usr/share/applications" "$pkgdir/etc/xdg/autostart"
+
+  cat > "$pkgdir/usr/share/applications/opennotch.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=OpenNotch
+Comment=Dynamic-Island-style notch: music, system, clipboard, shelf, timer
+Exec=/usr/bin/opennotch
+Icon=opennotch
+Terminal=false
+Categories=Utility;
+StartupNotify=false
+EOF
+
+  cat > "$pkgdir/usr/share/applications/opennotch-settings.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=OpenNotch Settings
+Comment=Look, island, taskbar, panels, widgets and keys
+Exec=/usr/bin/opennotch settings
+Icon=opennotch
+Terminal=false
+Categories=Utility;Settings;
+StartupNotify=false
+EOF
+
+  cat > "$pkgdir/etc/xdg/autostart/opennotch.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=OpenNotch
+Comment=Dynamic-Island-style notch: music, system, clipboard, shelf, timer
+Exec=/usr/bin/opennotch
+Icon=opennotch
+Terminal=false
+Categories=Utility;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3
+EOF
+}

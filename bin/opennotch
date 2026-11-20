@@ -1,7 +1,7 @@
 #!/bin/sh
 # Launcher: finds the opennotch package next to this script (repo checkout) or in ~/.local/lib (installed).
 HERE="$(dirname "$(readlink -f "$0")")"
-for d in "$HERE/.." "${XDG_DATA_HOME:-$HOME/.local/share}/opennotch/app"; do
+for d in "$HERE/.." "${XDG_DATA_HOME:-$HOME/.local/share}/opennotch/app" "/usr/lib/opennotch" "/usr/share/opennotch/app"; do
     if [ -f "$d/opennotch/__main__.py" ]; then
         PYTHONPATH="$(readlink -f "$d")${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m opennotch "$@"
     fi
