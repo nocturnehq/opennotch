@@ -161,6 +161,105 @@ def battery_alert_state():
 
 # ---- brightness ----------------------------------------------------------------
 
+_BRIGHT_DBUS_CACHE = None
+
+
+def _dbus_session():
+    try:
+        from gi.repository import Gio
+        return Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    except Exception:
+        return None
+
+
+def _kde_brightness_get():
+    bus = _dbus_session()
+    if bus is None:
+        return None
+    try:
+        from gi.repository import Gio
+        cur = bus.call_sync(
+            "org.kde.Solid.PowerManagement",
+            "/org/kde/Solid/PowerManagement/Actions/BrightnessControl",
+            "org.kde.Solid.PowerManagement.Actions.BrightnessControl",
+            "brightness", None, None, Gio.DBusCallFlags.NONE, 400, None,
+        ).unpack()[0]
+        mx = bus.call_sync(
+            "org.kde.Solid.PowerManagement",
+            "/org/kde/Solid/PowerManagement/Actions/BrightnessControl",
+            "org.kde.Solid.PowerManagement.Actions.BrightnessControl",
+            "brightnessMax", None, None, Gio.DBusCallFlags.NONE, 400, None,
+        ).unpack()[0]
+        if mx > 0:
+            return 100.0 * cur / mx, mx
+    except Exception:
+        pass
+    return None
+
+
+def _kde_brightness_set(percent):
+    bus = _dbus_session()
+    if bus is None:
+        return False
+    try:
+        from gi.repository import Gio, GLib
+        mx = bus.call_sync(
+            "org.kde.Solid.PowerManagement",
+            "/org/kde/Solid/PowerManagement/Actions/BrightnessControl",
+            "org.kde.Solid.PowerManagement.Actions.BrightnessControl",
+            "brightnessMax", None, None, Gio.DBusCallFlags.NONE, 400, None,
+        ).unpack()[0]
+        if mx <= 0:
+            return False
+        value = max(1, round(mx * min(100, max(1, percent)) / 100))
+        bus.call_sync(
+            "org.kde.Solid.PowerManagement",
+            "/org/kde/Solid/PowerManagement/Actions/BrightnessControl",
+            "org.kde.Solid.PowerManagement.Actions.BrightnessControl",
+            "setBrightnessSilent", GLib.Variant("(i)", (int(value),)),
+            None, Gio.DBusCallFlags.NONE, 400, None,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _cinnamon_brightness_get():
+    bus = _dbus_session()
+    if bus is None:
+        return None
+    try:
+        from gi.repository import Gio
+        pct = bus.call_sync(
+            "org.cinnamon.SettingsDaemon.Power",
+            "/org/cinnamon/SettingsDaemon/Power",
+            "org.cinnamon.SettingsDaemon.Power.Screen",
+            "GetPercentage", None, None, Gio.DBusCallFlags.NONE, 400, None,
+        ).unpack()[0]
+        return float(pct)
+    except Exception:
+        return None
+
+
+def _cinnamon_brightness_set(percent):
+    bus = _dbus_session()
+    if bus is None:
+        return False
+    try:
+        from gi.repository import Gio, GLib
+        val = int(round(min(100, max(1, percent))))
+        bus.call_sync(
+            "org.cinnamon.SettingsDaemon.Power",
+            "/org/cinnamon/SettingsDaemon/Power",
+            "org.cinnamon.SettingsDaemon.Power.Screen",
+            "SetPercentage", GLib.Variant("(u)", (val,)),
+            None, Gio.DBusCallFlags.NONE, 400, None,
+        )
+        return True
+    except Exception:
+        return False
+
+
 def backlight_dir():
     dirs = sorted(glob.glob("/sys/class/backlight/*"))
     return dirs[0] if dirs else None
@@ -168,6 +267,12 @@ def backlight_dir():
 
 def brightness():
     """Returns (percent, writable) or None if the machine has no backlight."""
+    kde = _kde_brightness_get()
+    if kde is not None:
+        return kde[0], True
+    cin = _cinnamon_brightness_get()
+    if cin is not None:
+        return cin, True
     d = backlight_dir()
     if not d:
         return None
@@ -178,22 +283,35 @@ def brightness():
             mx = int(f.read()) or 1
     except (OSError, ValueError):
         return None
-    return 100.0 * cur / mx, os.access(os.path.join(d, "brightness"), os.W_OK)
+    writable = os.access(os.path.join(d, "brightness"), os.W_OK) or bool(shutil.which("brightnessctl"))
+    return 100.0 * cur / mx, writable
 
 
 def set_brightness(percent):
-    d = backlight_dir()
-    if not d:
-        return False
-    try:
-        with open(os.path.join(d, "max_brightness")) as f:
-            mx = int(f.read())
-        value = max(1, round(mx * min(100, max(1, percent)) / 100))  # never 0: a black screen is hard to undo
-        with open(os.path.join(d, "brightness"), "w") as f:
-            f.write(str(value))
+    pct = min(100, max(1, percent))  # never 0: a black screen is hard to undo
+    if _kde_brightness_set(pct):
         return True
-    except (OSError, ValueError):
-        return False
+    if _cinnamon_brightness_set(pct):
+        return True
+    d = backlight_dir()
+    if d:
+        try:
+            with open(os.path.join(d, "max_brightness")) as f:
+                mx = int(f.read())
+            value = max(1, round(mx * pct / 100))
+            with open(os.path.join(d, "brightness"), "w") as f:
+                f.write(str(value))
+            return True
+        except (OSError, ValueError):
+            pass
+    if shutil.which("brightnessctl"):
+        try:
+            subprocess.run(["brightnessctl", "set", f"{int(round(pct))}%"],
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+            return True
+        except Exception:
+            pass
+    return False
 
 
 # ---- audio (pactl) -------------------------------------------------------------
