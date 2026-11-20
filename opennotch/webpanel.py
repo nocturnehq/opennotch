@@ -44,14 +44,19 @@ def web_address(value, assume_https=False):
 DDG_CSS = """
 :root { --theme-col-bg-page: #0b0b0c !important; --theme-col-bg-header: #0b0b0c !important;
   --theme-col-bg-card: #141418 !important; --theme-col-txt-title: #ffffff !important;
-  --theme-col-accent: #ffffff !important; --color-orange: #ffffff !important; }
+  --theme-col-accent: #ffffff !important; --color-orange: #ffffff !important;
+  --theme-col-link-active: #ffffff !important; }
 body, html, .site-wrapper, .header-wrap { background: #0b0b0c !important; color: #ffffff !important; }
+.header__logo, .header__logo-wrap svg, a[title*="DuckDuckGo"] svg, a[aria-label*="DuckDuckGo"] svg,
+.header__logo-wrap img { filter: grayscale(1) contrast(1.2) brightness(1.15) !important; }
 .search--header, .search--adv, form[role="search"] {
   background: rgba(255,255,255,0.07) !important; border: 1px solid rgba(255,255,255,0.16) !important;
   box-shadow: none !important; }
 .search__button, button[type="submit"], .searchbox_searchButton__F5Bwq {
   background: #ffffff !important; color: #0b0b0c !important; fill: #0b0b0c !important; }
 .search__button:hover, button[type="submit"]:hover { background: #e5e5ea !important; }
+.zcm__link.is-active, .zcm__link.is-active::after { color: #ffffff !important; border-color: #ffffff !important; }
+.feedback-btn, [aria-label="Share Feedback"] { display: none !important; }
 a, a:visited { color: #ffffff !important; }
 """
 
