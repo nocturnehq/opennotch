@@ -326,10 +326,24 @@ def test_extra_widgets(tmp):
     assert parse_currency_spec("EUR: USD, JPY") == ("EUR", ["USD", "JPY"])
 
 
+def test_panels_and_rules():
+    from .apprules import match_app_rule, parse_app_rules
+    from .panels import parse_launch_apps
+
+    assert parse_app_rules("vlc:hide, code:slim, bad:nope") == [("vlc", "hide"), ("code", "slim")]
+    assert match_app_rule("vlc", "Movie.mkv", "vlc:hide, code:slim") == "hide"
+    assert match_app_rule("Code", "app.py - VS Code", "vlc:hide, code:slim") == "slim"
+    assert match_app_rule("firefox", "Docs", "vlc:hide, code:slim") is None
+    assert parse_launch_apps("nemo, firefox, konsole") == ["nemo", "firefox", "konsole"]
+    cfg = config.validate({"launcher_panel": True, "camera_panel": True, "chat_overlay": True,
+                           "app_rules": "vlc:hide", "key_chat_drawer": "<Ctrl><Alt><Shift>C"})
+    assert cfg["launcher_panel"] and cfg["camera_panel"] and cfg["chat_overlay"] and cfg["app_rules"] == "vlc:hide"
+
+
 def main():
     tests = [("config loader", test_config), ("lyrics parser", test_lyrics), ("clipboard store", test_clipstore),
              ("socket protocol", test_protocol), ("mic recording parser", lambda _t: test_source_outputs()),
-             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1()), ("extra widgets", test_extra_widgets)]
+             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1()), ("extra widgets", test_extra_widgets), ("panels & app rules", lambda _t: test_panels_and_rules())]
     failed = 0
     for name, fn in tests:
         with tempfile.TemporaryDirectory() as tmp:

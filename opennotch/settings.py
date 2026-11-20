@@ -176,6 +176,10 @@ SECTIONS = [
         ("Controls and web", [
             T("controls_panel", "Controls tab", "Brightness and volume sliders, Wi-Fi, Bluetooth, night light, focus, mute."),
             T("web_panel", "Web tab", "Open music sites in a browser inside the island."),
+            T("launcher_panel", "Launcher & Deck tab", "Quick-launch app tiles and action macros inside the island."),
+            X("launch_apps", "Launcher apps", "Optional comma-separated commands or .desktop IDs (up to 6).", "nemo, firefox, konsole"),
+            T("camera_panel", "Camera mirror tab", "Quick webcam mirror inside the island (opens camera only when viewed)."),
+            T("media_info_on_drop", "Media info on drop", "Show resolution, duration and codec when dropping a media file on the shelf."),
             T("ask_claude", "Ask Claude tab", "Questions answered by your Claude Code sign-in."),
         ]),
     ]),
@@ -236,7 +240,8 @@ SECTIONS = [
                        N("obs_port", "OBS WebSocket port", "The port set in OBS WebSocket Server Settings.", 1, 65535),
                        X("obs_password", "OBS WebSocket password", "Used only to connect to OBS on this computer.", secret=True),
                        X("chat_twitch", "Twitch chat", "Show messages from this channel. Leave blank to turn it off.", "channel"),
-                       X("chat_youtube", "YouTube chat", "A channel (@name) or live video link. Leave blank to turn it off.", "@channel or link")]),
+                       X("chat_youtube", "YouTube chat", "A channel (@name) or live video link. Leave blank to turn it off.", "@channel or link"),
+                       T("chat_overlay", "Floating chat drawer", "Show live Twitch/YouTube chat in a draggable overlay instead of toasts (Ctrl+Alt+Shift+C).")]),
     ]),
     ("Gaming", "input-gaming-symbolic", [
         ("Game strip", [T("game_strip_fullscreen", "Game strip", "In fullscreen apps and games, a CPU, GPU and RAM "
@@ -244,7 +249,8 @@ SECTIONS = [
                         T("game_strip_everywhere", "Show game strip everywhere", "Keep the stats strip on the pill even outside fullscreen."),
                         T("overlay_network", "Show network speed", "Include live download rate in the game strip."),
                         T("overlay_clock", "Show clock", "Include the time in the game strip."),
-                        T("hide_in_fullscreen", "Hide in fullscreen", "")]),
+                        T("hide_in_fullscreen", "Hide in fullscreen", ""),
+                        X("app_rules", "Per-app rules", "Comma-separated app:hide or app:slim rules.", "vlc:hide, code:slim")]),
     ]),
     ("AI agents", "user-available-symbolic", [
         ("Agents", [T("agents_notify_done", "Tell me when an agent is done", "Coding agents can pop a message out "
@@ -262,7 +268,8 @@ SECTIONS = [
                        X("key_timer", "Focus timer", "", config.DEFAULTS["key_timer"]),
                        X("key_hide", "Hide the island", "", "<Ctrl><Alt>H"),
                        X("key_mic", "Mute the microphone everywhere", "", "<Ctrl><Alt>M"),
-                       X("key_output", "Switch audio output", "", "<Ctrl><Alt>O")]),
+                       X("key_output", "Switch audio output", "", "<Ctrl><Alt>O"),
+                       X("key_chat_drawer", "Toggle live chat drawer", "", "<Ctrl><Alt><Shift>C")]),
     ]),
     ("About", "help-about-symbolic", [
         ("About", [dict(key="", title="OpenNotch", desc="A free Dynamic-Island-style notch for Linux. Settings mirror "

@@ -44,13 +44,14 @@ CLOSE_DELAY_MS = 260
 PASSWORD_HINT = "x-kde-passwordManagerHint"
 ICON_GLYPHS = {"ok": "✓", "fail": "✕", "info": "i"}
 TAB_TITLES = {"music": "Music", "web": "Web", "overview": "Overview", "controls": "Controls", "clipboard": "Clipboard",
-              "shelf": "Shelf", "notifications": "Notifications", "claude": "Ask Claude"}
+              "shelf": "Shelf", "notifications": "Notifications", "launcher": "Launcher", "camera": "Camera", "claude": "Ask Claude"}
 # each tab gets a card sized to its content, so there is no dead space; the card morphs between them
 TAB_SIZES = {"music": (540, 196), "web": (670, 430), "overview": (560, 250), "controls": (580, 282), "clipboard": (400, 196),
-             "shelf": (480, 150), "notifications": (480, 150), "claude": (520, 230)}
+             "shelf": (480, 150), "notifications": (480, 150), "launcher": (520, 210), "camera": (380, 236), "claude": (520, 230)}
 TAB_ICONS = {"music": "audio-x-generic-symbolic", "web": "web-browser-symbolic", "overview": "x-office-calendar-symbolic",
              "controls": "emblem-system-symbolic", "clipboard": "edit-paste-symbolic",
              "shelf": "folder-symbolic", "notifications": "preferences-system-notifications-symbolic",
+             "launcher": "view-grid-symbolic", "camera": "camera-web-symbolic",
              "claude": "user-available-symbolic"}
 
 CSS = """
@@ -798,6 +799,8 @@ class Notch(Gtk.Window):
         self.youtube = None
         self.previews = None
         self.dock_bg = None
+        self.chat_drawer = None
+        self.camera_mirror = None
         self.card_pet = None
         self.roaming_pet = None
         self.pet_idle_clock = None
@@ -992,12 +995,16 @@ class Notch(Gtk.Window):
 
     def _update_coverage(self):
         if not (self.cfg["slim_strip"] or self.cfg["hide_in_fullscreen"] or
-                self.cfg["game_strip_fullscreen"] or self.cfg["game_strip_everywhere"]):
+                self.cfg["game_strip_fullscreen"] or self.cfg["game_strip_everywhere"] or self.cfg["app_rules"]):
             return
         maximized, fullscreen = coverage(self.monitor)
+        rule = None
+        if self.cfg["app_rules"]:
+            from .apprules import active_app_rule
+            rule = active_app_rule(self.cfg["app_rules"])
         game = self.cfg["game_strip_everywhere"] or (self.cfg["game_strip_fullscreen"] and fullscreen)
-        slim = self.cfg["slim_strip"] and (maximized or fullscreen) and not game
-        hidden = self.cfg["hide_in_fullscreen"] and fullscreen and not game
+        slim = ((self.cfg["slim_strip"] and (maximized or fullscreen)) or rule == "slim") and not game
+        hidden = ((self.cfg["hide_in_fullscreen"] and fullscreen) or rule == "hide") and not game
         if (slim, hidden, game) == (self.slim, self.fullscreen_hidden, self.game_strip):
             return
         self.slim, self.fullscreen_hidden = slim, hidden
@@ -1139,12 +1146,14 @@ class Notch(Gtk.Window):
         builders = {"clipboard": self._build_clipboard, "shelf": self._build_shelf,
                     "notifications": self._build_notifications}
         builders.update({"music": self._build_music, "overview": self._build_overview,
-                         "controls": self._build_controls, "claude": self._build_claude, "web": self._build_web})
+                         "controls": self._build_controls, "launcher": self._build_launcher,
+                         "camera": self._build_camera, "claude": self._build_claude, "web": self._build_web})
         off = {"notifications": not self.cfg["notifications_panel"], "shelf": not self.cfg["shelf_enabled"],
                "clipboard": not self.cfg["clipboard_enabled"], "controls": not self.cfg["controls_panel"],
+               "launcher": not self.cfg["launcher_panel"], "camera": not self.cfg["camera_panel"],
                "claude": not self.cfg["ask_claude"], "web": not self.cfg["web_panel"]}
         requested = self.cfg["tabs"]
-        tabs_wanted = [t for t in config.TABS if (t in requested or t == "web") and not off.get(t)]
+        tabs_wanted = [t for t in config.TABS if (t in requested or t in ("web", "launcher", "camera")) and not off.get(t)]
         if not tabs_wanted:
             tabs_wanted = ["music"]
         for name in tabs_wanted:
@@ -2142,12 +2151,31 @@ class Notch(Gtk.Window):
         self._refresh_controls()
         self._on_tab_changed()
 
+    def _build_launcher(self):
+        from .panels import build_launcher_panel
+
+        actions = [
+            ("Screenshot", "applets-screenshooter-symbolic", self._take_screenshot),
+            ("Colour", "color-select-symbolic", self._pick_color),
+            ("Audio", "audio-speakers-symbolic", self._cycle_audio_output),
+            ("Focus", "alarm-symbolic", self._pomo_toggle),
+        ]
+        return build_launcher_panel(self.cfg, actions, lambda: self._go("pill"))
+
+    def _build_camera(self):
+        from .panels import CameraMirror
+
+        self.camera_mirror = CameraMirror()
+        return self.camera_mirror
+
     def _on_card_closed(self):
         self._stop_stats()
         if hasattr(self, "seek"):
             self.seek.animate(False)
         if hasattr(self, "card_eq"):
             self.card_eq.run(False)
+        if self.camera_mirror is not None:
+            self.camera_mirror.stop()
         if self.get_accept_focus():
             self.set_accept_focus(False)
         self._update_pill()
@@ -2236,6 +2264,11 @@ class Notch(Gtk.Window):
             self.unread = 0
             self._refresh_notes()
             self._update_pill()
+        if self.camera_mirror is not None:
+            if name == "camera" and self.state == "card":
+                self.camera_mirror.start()
+            else:
+                self.camera_mirror.stop()
 
     # ======================================================================= music
     def _on_music(self):
@@ -2552,6 +2585,7 @@ class Notch(Gtk.Window):
         c = self.cfg
         keys = {c["key_mic"]: lambda: self._toggle_mic(),
                 c["key_output"]: lambda: self._cycle_audio_output(),
+                c["key_chat_drawer"]: lambda: self._toggle_chat_drawer(),
                 c["key_toggle"]: lambda: self._go("pill") if self.state == "card" else self._open_now(),
                 c["key_play"]: lambda: self.mpris and self.mpris.call("PlayPause"),
                 c["key_timer"]: lambda: self._pomo_toggle(),
@@ -2683,8 +2717,20 @@ class Notch(Gtk.Window):
         self._set_input_shape(self.cur)
         self.queue_draw()
 
+    def _toggle_chat_drawer(self):
+        if self.chat_drawer is None:
+            from .chatdrawer import ChatDrawer
+            self.chat_drawer = ChatDrawer(self.cfg["font"])
+        self.chat_drawer.toggle()
+
     def _on_chat_message(self, author, text):
-        if len(self.toasts) < 2:  # don't let a busy chat queue up behind other notices
+        if self.cfg["chat_overlay"]:
+            if self.chat_drawer is None:
+                from .chatdrawer import ChatDrawer
+                self.chat_drawer = ChatDrawer(self.cfg["font"])
+                self.chat_drawer.show_all()
+            self.chat_drawer.push("live", author, text[:240])
+        elif len(self.toasts) < 2:  # don't let a busy chat queue up behind other notices
             self.show_toast(author, "info", 4, text[:200])
 
     def _toggle_obs_recording(self):
@@ -3059,6 +3105,15 @@ class Notch(Gtk.Window):
         uris = [u for u in (data.get_uris() or []) if u not in self.shelf]
         if uris:
             self._shelf_set(self.shelf + uris)
+            if self.cfg["media_info_on_drop"]:
+                first = Gio.File.new_for_uri(uris[0]).get_path()
+                if first:
+                    def _probe(p=first):
+                        from .panels import probe_media_info
+                        info = probe_media_info(p)
+                        if info:
+                            GLib.idle_add(lambda: (self.show_toast(info, "video-x-generic-symbolic", 4), False)[1])
+                    threading.Thread(target=_probe, daemon=True).start()
 
     def _load_shelf(self):
         try:
@@ -3505,6 +3560,10 @@ class Notch(Gtk.Window):
             self.previews.close()
         if self.dock_bg is not None:
             self.dock_bg.close()
+        if self.camera_mirror is not None:
+            self.camera_mirror.stop()
+        if self.chat_drawer is not None:
+            self.chat_drawer.destroy()
         if self.roaming_pet is not None:
             self.roaming_pet.close()
         if self.pet_idle_clock is not None:
@@ -3531,6 +3590,10 @@ class Notch(Gtk.Window):
             self.previews.close()
         if self.dock_bg is not None:
             self.dock_bg.close()
+        if self.camera_mirror is not None:
+            self.camera_mirror.stop()
+        if self.chat_drawer is not None:
+            self.chat_drawer.destroy()
         if self.roaming_pet is not None:
             self.roaming_pet.close()
         if self.pet_idle_clock is not None:

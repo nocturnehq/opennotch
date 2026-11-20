@@ -8,7 +8,7 @@ from . import CONFIG_DIR
 
 LEGACY_TIMER_KEY = "<Ctrl><Alt>T"
 
-TABS = ["music", "web", "notifications", "shelf", "clipboard", "overview", "controls", "claude"]
+TABS = ["music", "web", "notifications", "shelf", "clipboard", "overview", "controls", "launcher", "camera", "claude"]
 # tab names from the first version, mapped to the pages that replaced them
 OLD_TABS = {"home": ["music", "overview", "controls"], "timer": ["overview"]}
 
@@ -28,6 +28,13 @@ DEFAULTS = {
     "volume_popups": True,
     "ask_claude": True,
     "web_panel": True,
+    "launcher_panel": False,
+    "camera_panel": False,
+    "launch_apps": "",
+    "media_info_on_drop": True,
+    "chat_overlay": False,
+    "app_rules": "",
+    "lock_desktop_widgets": False,
     "desktop_widgets": False,
     "surface": "glass",        # black | glass (user: black pill, liquid-glass card)
     "resting": "empty",        # what the closed pill shows when nothing is going on
@@ -143,6 +150,7 @@ DEFAULTS = {
     "key_hide": "<Ctrl><Alt>H",
     "key_mic": "<Ctrl><Alt>M",
     "key_output": "<Ctrl><Alt>O",
+    "key_chat_drawer": "<Ctrl><Alt><Shift>C",
 }
 CHOICES = {"language": ("auto", "en", "el"), "alt_tab_style": ("ring", "fan", "flip"), "surface": ("black", "glass"), "resting": ("empty", "clock", "pet"), "pet": ("cat", "dog", "bunny"), "progress": ("comet", "wave"),
            "shape": ("notch", "island"), "position": ("left", "center", "right", "left_side", "right_side"),
@@ -160,8 +168,8 @@ BOOLS = ("lyrics", "volume_popups", "ask_claude", "desktop_widgets", "reverse_sc
          "custom_taskbar", "taskbar_auto_hide", "taskbar_status", "higher_contrast", "reduce_motion",
          "longer_notices", "hidden_until_hover", "show_download_activity", "slim_strip", "game_strip_fullscreen", "taskbar_number_keys", "taskbar_previews", "alt_tab_animation",
          "hide_in_fullscreen", "color_pick", "agents_notify_done", "captures_to_shelf",
-         "screen_record", "record_microphone", "show_privacy_indicator", "web_panel", "all_monitors", "phone_share", "meeting_countdown", "obs_enabled", "live_wallpaper")
-KEYS = ("key_toggle", "key_play", "key_timer", "key_hide", "key_mic", "key_output")
+         "screen_record", "record_microphone", "show_privacy_indicator", "web_panel", "launcher_panel", "camera_panel", "media_info_on_drop", "chat_overlay", "lock_desktop_widgets", "all_monitors", "phone_share", "meeting_countdown", "obs_enabled", "live_wallpaper")
+KEYS = ("key_toggle", "key_play", "key_timer", "key_hide", "key_mic", "key_output", "key_chat_drawer")
 
 # key -> (min, max) for integers
 RANGES = {
@@ -211,7 +219,8 @@ def validate(raw):
             cfg[key] = raw[key]
     for key, limit in (("calendar_file", 4096), ("live_wallpaper_file", 4096), ("obs_password", 500),
                        ("media_source_apps", 500), ("countdown_title", 80), ("countdown_date", 32),
-                       ("ping_host", 120), ("currency_watch", 64), ("photos_folder", 4096)):
+                       ("ping_host", 120), ("currency_watch", 64), ("photos_folder", 4096),
+                       ("launch_apps", 500), ("app_rules", 500)):
         value = raw.get(key)
         if isinstance(value, str) and len(value) <= limit and "\x00" not in value:
             cfg[key] = value

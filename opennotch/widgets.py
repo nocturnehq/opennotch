@@ -306,6 +306,7 @@ def build_todo_widget(want_keyboard):
     head.pack_start(_lbl("To-do", "label", ellipsize=False), False, False, 0)
     clr = Gtk.Button(label="Clear done")
     clr.set_can_focus(False)
+    clr.set_no_show_all(True)
     clr.get_style_context().add_class("chip")
     head.pack_end(clr, False, False, 0)
     box.pack_start(head, False, False, 0)
