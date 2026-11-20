@@ -2613,6 +2613,7 @@ class Notch(Gtk.Window):
         if c["color_pick"]:
             keys.setdefault("<Ctrl><Alt>C", self._pick_color)
         keys.setdefault("<Ctrl><Alt>S", lambda: self._capture_hotkey(self._take_screenshot))
+        keys.setdefault("Print", lambda: self._capture_hotkey(self._take_screenshot))
         if c["screen_record"]:
             keys.setdefault("<Ctrl><Alt><Shift>R", lambda: self._capture_hotkey(self._toggle_screen_recording))
         if self.obs is not None:
