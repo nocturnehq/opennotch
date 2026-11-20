@@ -50,7 +50,7 @@ TAB_SIZES = {"music": (440, 148), "web": (670, 430), "overview": (560, 250), "co
              "shelf": (480, 150), "notifications": (480, 150), "launcher": (520, 210), "camera": (380, 236), "claude": (520, 230)}
 TAB_ICONS = {"music": "audio-x-generic-symbolic", "web": "web-browser-symbolic", "overview": "x-office-calendar-symbolic",
              "controls": "multimedia-equalizer-symbolic", "clipboard": "edit-paste-symbolic",
-             "shelf": "folder-symbolic", "notifications": "preferences-system-notifications-symbolic",
+             "shelf": "folder-symbolic", "notifications": "bell-outline-symbolic",
              "launcher": "view-grid-symbolic", "camera": "camera-web-symbolic",
              "claude": "user-available-symbolic"}
 
