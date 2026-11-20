@@ -97,8 +97,23 @@ DEFAULTS = {
     "show_clock_widget": False,
     "show_nowplaying_widget": False,
     "show_notes_widget": False,
+    "show_todo_widget": False,
+    "show_calc_widget": False,
+    "show_countdown_widget": False,
+    "show_reminders_widget": False,
+    "show_ping_widget": False,
+    "show_currency_widget": False,
+    "show_photos_widget": False,
     "world_clock_zone": "America/New_York",
-    "widget_order": ["date", "timer", "weather", "stats", "battery", "storage", "upnext", "clock", "nowplaying", "notes"],
+    "world_clock_zone2": "",
+    "world_clock_zone3": "",
+    "countdown_title": "",
+    "countdown_date": "",
+    "ping_host": "1.1.1.1",
+    "currency_watch": "USD: EUR, GBP",
+    "photos_folder": "",
+    "widget_order": ["date", "timer", "weather", "stats", "battery", "storage", "upnext", "clock", "nowplaying", "notes",
+                     "todo", "calc", "countdown", "reminders", "ping", "currency", "photos"],
     "weather_fahrenheit": False,
     "notify_endpoint": True,
     "agents_notify_done": True,
@@ -140,7 +155,8 @@ BOOLS = ("lyrics", "volume_popups", "ask_claude", "desktop_widgets", "reverse_sc
          "record_pc_sound", "game_strip_everywhere", "overlay_network", "overlay_clock", "show_bluetooth_hud", "show_lock_keys_hud",
          "show_call_activity", "mirror_notifications", "notifications_panel",
          "notice_clock_time", "shelf_enabled", "clipboard_enabled", "controls_panel", "show_date_widget",
-         "show_timer_widget", "show_weather_widget", "show_stats_widget", "show_battery_widget", "show_storage_widget", "show_upnext_widget", "show_clock_widget", "show_nowplaying_widget", "show_notes_widget", "weather_fahrenheit", "notify_endpoint",
+         "show_timer_widget", "show_weather_widget", "show_stats_widget", "show_battery_widget", "show_storage_widget", "show_upnext_widget", "show_clock_widget", "show_nowplaying_widget", "show_notes_widget",
+         "show_todo_widget", "show_calc_widget", "show_countdown_widget", "show_reminders_widget", "show_ping_widget", "show_currency_widget", "show_photos_widget", "weather_fahrenheit", "notify_endpoint",
          "custom_taskbar", "taskbar_auto_hide", "taskbar_status", "higher_contrast", "reduce_motion",
          "longer_notices", "hidden_until_hover", "show_download_activity", "slim_strip", "game_strip_fullscreen", "taskbar_number_keys", "taskbar_previews", "alt_tab_animation",
          "hide_in_fullscreen", "color_pick", "agents_notify_done", "captures_to_shelf",
@@ -193,10 +209,26 @@ def validate(raw):
     for key, allowed in CHOICES.items():
         if raw.get(key) in allowed:
             cfg[key] = raw[key]
-    for key, limit in (("calendar_file", 4096), ("live_wallpaper_file", 4096), ("obs_password", 500), ("media_source_apps", 500)):
+    for key, limit in (("calendar_file", 4096), ("live_wallpaper_file", 4096), ("obs_password", 500),
+                       ("media_source_apps", 500), ("countdown_title", 80), ("countdown_date", 32),
+                       ("ping_host", 120), ("currency_watch", 64), ("photos_folder", 4096)):
         value = raw.get(key)
         if isinstance(value, str) and len(value) <= limit and "\x00" not in value:
             cfg[key] = value
+    for zk in ("world_clock_zone2", "world_clock_zone3"):
+        z = raw.get(zk)
+        if isinstance(z, str):
+            z = z.strip()
+            if not z:
+                cfg[zk] = ""
+            elif len(z) <= 64:
+                try:
+                    from zoneinfo import ZoneInfo
+
+                    ZoneInfo(z)
+                    cfg[zk] = z
+                except (ValueError, KeyError, OSError):
+                    pass
     twitch = raw.get("chat_twitch")
     if isinstance(twitch, str):
         from .twitchchat import channel_name

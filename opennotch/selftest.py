@@ -294,10 +294,42 @@ def test_milestone1():
     assert cfg["key_output"] == "<Ctrl><Alt>O" and not cfg["record_pc_sound"] and cfg["game_strip_everywhere"]
 
 
+def test_extra_widgets(tmp):
+    from datetime import datetime
+    from .widgets import ReminderStore, TodoStore, countdown_parts, parse_currency_spec, parse_reminder, safe_eval_math
+
+    assert safe_eval_math("25 * 4 + 12") == "112"
+    assert safe_eval_math("sqrt(81) + 2^3") == "17"
+    assert safe_eval_math("__import__('os').system('id')") is None
+
+    now = datetime(2026, 11, 20, 10, 0)
+    assert countdown_parts("2026-11-25", now=now)[0] == "4d"
+    assert countdown_parts("2026-11-20 12:30", now=now)[0] == "2h 30m"
+    assert countdown_parts("2020-01-01", now=now)[0] == "Done"
+
+    due, msg = parse_reminder("15m Stretch", now=now)
+    assert msg == "Stretch" and round(due - now.timestamp()) == 900
+    due2, msg2 = parse_reminder("14:30 Standup", now=now)
+    assert msg2 == "Standup" and due2 > now.timestamp()
+
+    ts = TodoStore(os.path.join(tmp, "todos.json"))
+    assert ts.add("Buy milk") and ts.add("Ship release")
+    ts.toggle(0)
+    ts.clear_done()
+    assert [i["text"] for i in ts.items] == ["Buy milk"]
+
+    rs = ReminderStore(os.path.join(tmp, "rem.json"))
+    assert rs.add("1s Ping", now=now)
+    assert len(rs.pop_due(now_ts=now.timestamp() + 5)) == 1
+    assert rs.pop_due(now_ts=now.timestamp() + 5) == []
+
+    assert parse_currency_spec("EUR: USD, JPY") == ("EUR", ["USD", "JPY"])
+
+
 def main():
     tests = [("config loader", test_config), ("lyrics parser", test_lyrics), ("clipboard store", test_clipstore),
              ("socket protocol", test_protocol), ("mic recording parser", lambda _t: test_source_outputs()),
-             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1())]
+             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1()), ("extra widgets", test_extra_widgets)]
     failed = 0
     for name, fn in tests:
         with tempfile.TemporaryDirectory() as tmp:

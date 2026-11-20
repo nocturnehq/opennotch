@@ -1477,6 +1477,25 @@ class Notch(Gtk.Window):
         buf.connect("changed", lambda b, p=notes_ph: p.set_visible(b.get_char_count() == 0))
         notes.pack_start(notes_wrap, True, True, 0)
         cards.append(("notes", card(notes)))
+        from . import widgets as extra_widgets
+        self._countdown_refresh = None
+        if self.cfg["show_todo_widget"]:
+            cards.append(("todo", card(extra_widgets.build_todo_widget(self._want_keyboard))))
+        if self.cfg["show_calc_widget"]:
+            cards.append(("calc", card(extra_widgets.build_calc_widget(
+                self._want_keyboard, lambda v: (self.clipboard.set_text(v, -1), self.show_toast(f"Copied {v}", "ok", 1.5))))))
+        if self.cfg["show_countdown_widget"]:
+            cd_box, self._countdown_refresh = extra_widgets.build_countdown_widget(self.cfg)
+            cards.append(("countdown", card(cd_box)))
+        if self.cfg["show_reminders_widget"]:
+            cards.append(("reminders", card(extra_widgets.build_reminders_widget(
+                self._want_keyboard, lambda msg: self.show_toast(msg, "alarm-symbolic", 6)))))
+        if self.cfg["show_ping_widget"]:
+            cards.append(("ping", card(extra_widgets.build_ping_widget(self.cfg))))
+        if self.cfg["show_currency_widget"]:
+            cards.append(("currency", card(extra_widgets.build_currency_widget(self.cfg))))
+        if self.cfg["show_photos_widget"]:
+            cards.append(("photos", card(extra_widgets.build_photos_widget(self.cfg))))
         for name, c in cards:
             c.get_style_context().add_class(f"w-{name}")  # each widget wears its own colour (design.WIDGET_COLORS)
         rank = {name: i for i, name in enumerate(self.cfg["widget_order"])}
@@ -2378,7 +2397,16 @@ class Notch(Gtk.Window):
         there = _dt.now(ZoneInfo(self.cfg["world_clock_zone"]))
         self.w_clock.set_text(there.strftime("%H:%M"))
         diff = (there.utcoffset() - _dt.now().astimezone().utcoffset()).total_seconds() / 3600
-        self.w_clock_sub.set_text(there.strftime("%a") + (f" · {diff:+g} h" if diff else " · same time"))
+        clock_parts = [there.strftime("%a") + (f" · {diff:+g} h" if diff else " · same time")]
+        for zk in ("world_clock_zone2", "world_clock_zone3"):
+            z = self.cfg.get(zk)
+            if z:
+                zt = _dt.now(ZoneInfo(z))
+                city = z.rsplit("/", 1)[-1].replace("_", " ")
+                clock_parts.append(f"{city} {zt.strftime('%H:%M')}")
+        self.w_clock_sub.set_text("  |  ".join(clock_parts))
+        if getattr(self, "_countdown_refresh", None):
+            self._countdown_refresh()
         info = self.mpris.info() if getattr(self, "mpris", None) else None
         self.w_np.set_text(info["title"] if info and info.get("title") else "Nothing playing")
         self.w_np_sub.set_text(info.get("artist", "") if info else "")
