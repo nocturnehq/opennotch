@@ -46,7 +46,7 @@ ICON_GLYPHS = {"ok": "✓", "fail": "✕", "info": "i"}
 TAB_TITLES = {"music": "Music", "web": "Web", "overview": "Overview", "controls": "Controls", "clipboard": "Clipboard",
               "shelf": "Shelf", "notifications": "Notifications", "launcher": "Launcher", "camera": "Camera", "claude": "Ask Claude"}
 # each tab gets a card sized to its content, so there is no dead space; the card morphs between them
-TAB_SIZES = {"music": (540, 196), "web": (670, 430), "overview": (560, 250), "controls": (580, 282), "clipboard": (400, 196),
+TAB_SIZES = {"music": (480, 178), "web": (670, 430), "overview": (560, 250), "controls": (580, 282), "clipboard": (400, 196),
              "shelf": (480, 150), "notifications": (480, 150), "launcher": (520, 210), "camera": (380, 236), "claude": (520, 230)}
 TAB_ICONS = {"music": "audio-x-generic-symbolic", "web": "web-browser-symbolic", "overview": "x-office-calendar-symbolic",
              "controls": "multimedia-equalizer-symbolic", "clipboard": "edit-paste-symbolic",
@@ -433,7 +433,7 @@ class WaveSeek(Gtk.DrawingArea):
         self.hover_t = 0.0
         self._hover_tick = 0
         self._hover_last = 0.0
-        self.set_size_request(-1, 30)
+        self.set_size_request(-1, 24)
         self.add_events(
             Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK |
             Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.ENTER_NOTIFY_MASK |
@@ -558,8 +558,8 @@ class WaveSeek(Gtk.DrawingArea):
         pad = 2.0
         span = w - 2 * pad
         ht = self.hover_t if (self.get_sensitive() and not self.unknown) else 0.0
-        bar_h = 6.0 + 4.0 * ht  # 6 px resting -> 10 px hovered/dragging
-        cy = h - 7.5            # bar anchored in lower half so tooltip sits cleanly above
+        bar_h = 4.5 + 3.0 * ht  # sleek 4.5 px resting -> 7.5 px hovered/dragging (iOS Dynamic Island)
+        cy = h / 2.0 + 3.0      # slightly below center to leave clean room for hover time pill
         by = cy - bar_h / 2.0
 
         # Frosted liquid-glass capsule track
@@ -1242,43 +1242,47 @@ class Notch(Gtk.Window):
         if hasattr(self, "W"):
             self._grow_window_for(w, h)
 
-    # ---- Music (player, or synced lyrics)
+    # ---- Music (Apple Dynamic Island layout: large art, inline scrub row, centered transport)
     def _build_music(self):
         self.music_stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=160)
-        player = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER)
+        player = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, valign=Gtk.Align.CENTER)
 
-        # Header row: compact rounded art + title/artist/album + live equalizer
-        head_row = Gtk.Box(spacing=12, valign=Gtk.Align.CENTER)
-        self.art = ArtView(68, 14)
+        # Top row: 82px rounded album art + title/artist/album + top-right live equalizer
+        head_row = Gtk.Box(spacing=14, valign=Gtk.Align.CENTER)
+        self.art = ArtView(82, 18)
         head_row.pack_start(self.art, False, False, 0)
-        meta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER)
-        self.m_title = label("Nothing playing", "song", chars=28)
-        self.m_artist = label("Start a player to see it here", "dim", chars=36)
-        self.m_album = label("", "dim", chars=36)
+        meta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3, valign=Gtk.Align.CENTER)
+        self.m_title = label("Nothing playing", "song", chars=26)
+        self.m_artist = label("Start a player to see it here", "dim", chars=32)
+        self.m_album = label("", "dim", chars=32)
         self.m_album.set_no_show_all(True)
         for w in (self.m_title, self.m_artist, self.m_album):
             meta.pack_start(w, False, False, 0)
         head_row.pack_start(meta, True, True, 0)
         self.card_eq = Equaliser((1.0, 1.0, 1.0))
         self.card_eq.pixels = self.cfg["visualizer"] == "pixels"
-        self.card_eq.set_valign(Gtk.Align.CENTER)
+        self.card_eq.set_valign(Gtk.Align.START)
+        self.card_eq.set_margin_top(6)
         self.card_eq.set_no_show_all(True)
-        head_row.pack_end(self.card_eq, False, False, 4)
+        head_row.pack_end(self.card_eq, False, False, 2)
 
-        # Full-width Apple-style liquid-glass scrub bar + tabular time labels
-        scrub = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        # Inline scrub row: elapsed time  [==== sleek glass bar ====]  duration
+        scrub_row = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
+        self.m_pos = label("0:00", "time", ellipsize=False)
+        self.m_pos.set_valign(Gtk.Align.CENTER)
+        self.m_pos.set_margin_top(5)
         self.seek = WaveSeek(self._on_seek_value, reduce_motion=self.cfg["reduce_motion"])
         self.seek.comet = self.cfg["progress"] == "comet"
-        times = Gtk.Box()
-        self.m_pos, self.m_len = label("0:00", "time", ellipsize=False), label("0:00", "time", ellipsize=False, xalign=1)
-        times.pack_start(self.m_pos, True, True, 0)
-        times.pack_end(self.m_len, True, True, 0)
-        scrub.pack_start(self.seek, False, False, 0)
-        scrub.pack_start(times, False, False, 0)
+        self.m_len = label("0:00", "time", ellipsize=False, xalign=1)
+        self.m_len.set_valign(Gtk.Align.CENTER)
+        self.m_len.set_margin_top(5)
+        scrub_row.pack_start(self.m_pos, False, False, 0)
+        scrub_row.pack_start(self.seek, True, True, 0)
+        scrub_row.pack_end(self.m_len, False, False, 0)
 
-        # Centered transport row + right-aligned Lyrics glass chip
+        # Bottom row: dead-center transport controls + subtle right-aligned Lyrics chip
         ctrls = Gtk.Box(valign=Gtk.Align.CENTER)
-        transport = Gtk.Box(spacing=14, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        transport = Gtk.Box(spacing=18, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
         self.b_play = icon_button("media-playback-start-symbolic", "Play / pause",
                                   lambda: self.mpris and self.mpris.call("PlayPause"), flat=False,
                                   size=Gtk.IconSize.LARGE_TOOLBAR)
@@ -1303,7 +1307,7 @@ class Notch(Gtk.Window):
             lyr.connect("clicked", lambda *_: self._show_lyrics(True))
             ctrls.pack_end(lyr, False, False, 0)
 
-        for w in (head_row, scrub, ctrls):
+        for w in (head_row, scrub_row, ctrls):
             player.pack_start(w, False, False, 0)
         self.music_stack.add_named(player, "player")
 
