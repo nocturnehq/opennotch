@@ -43,9 +43,10 @@ class VideoPrivacyWatch:
         self.process = None
         self.timeout = 0
         self.active = set()
+        self._last_raw = None
         if self.command:
             self._poll()
-            GLib.timeout_add_seconds(3, self._poll)
+            GLib.timeout_add_seconds(8, self._poll)
 
     def _poll(self):
         if self.process is not None:
@@ -68,8 +69,15 @@ class VideoPrivacyWatch:
     def _finished(self, process, result):
         try:
             _, output, _ = process.communicate_utf8_finish(result)
-            nodes = json.loads(output) if process.get_successful() else []
-            active = active_video(nodes, self.ignored) if isinstance(nodes, list) else set()
+            if process.get_successful():
+                if output == self._last_raw:
+                    active = self.active
+                else:
+                    self._last_raw = output
+                    nodes = json.loads(output)
+                    active = active_video(nodes, self.ignored) if isinstance(nodes, list) else set()
+            else:
+                active = set()
         except (GLib.Error, ValueError):
             active = set()
         self.process = None

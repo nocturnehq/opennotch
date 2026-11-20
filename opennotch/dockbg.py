@@ -194,6 +194,7 @@ class DockBackground(Gtk.Window):
         self._fullscreen = False
         self._last_dbus_check = 0.0
         self._last_stack_check = 0.0
+        self._last_hidden_probe = 0.0
         self._last_draw_key = None
 
         self.connect("draw", self._draw)
@@ -499,13 +500,20 @@ class DockBackground(Gtk.Window):
             self._set_shown(False)
             return False
 
-        # Check fullscreen at ~4 Hz
-        if now - self._last_fs_check >= 0.25:
+        # Check fullscreen at ~2 Hz
+        if now - self._last_fs_check >= 0.5:
             self._last_fs_check = now
             _, self._fullscreen = coverage(self._monitor())
         if self._fullscreen:
             self._set_shown(False)
             return False
+
+        # Fast idle path: when Plank is hidden and pointer is far from bottom edge, skip frequent X11 queries
+        px, py = self._pointer_pos()
+        bottom_y = self.mon_geo.y + self.mon_geo.height
+        if self.hide_progress >= 0.99 and py < bottom_y - 16 and now - self._last_hidden_probe < 0.55:
+            return False
+        self._last_hidden_probe = now
 
         info = self._read_plank_geometry()
         if info is None:
@@ -557,9 +565,7 @@ class DockBackground(Gtk.Window):
         self._ensure_below_plank(now)
 
         # Pointer tracking
-        px, py = self._pointer_pos()
         lx = px - self.mon_geo.x
-        bottom_y = self.mon_geo.y + self.mon_geo.height
         zoom_scale = self.zoom_percent / 100.0 if (self.zoom_enabled and not self.reduce_motion) else 1.0
         max_bump = (zoom_scale - 1.0) * self.icon_size
         cur_left, cur_right = bar_edges(self.base_left, self.base_right, self.wave_x,

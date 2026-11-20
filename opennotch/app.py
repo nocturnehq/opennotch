@@ -743,7 +743,8 @@ class Notch(Gtk.Window):
         self.connect("scroll-event", self._on_scroll)
         self.scroll_acc = 0.0
         # Cinnamon's panel takes pointer input over its strip, so enter/leave never fire there; poll instead
-        GLib.timeout_add(120, self._poll_hover)
+        self._last_cov_check = 0.0
+        GLib.timeout_add(140, self._poll_hover)
 
         provider = Gtk.CssProvider()
         css = CSS.format(accent=cfg["accent"], font=cfg["font"]) + design.island_css(cfg["font"]) + design.type_css()
@@ -881,7 +882,7 @@ class Notch(Gtk.Window):
             from .pet import IdleClock
 
             self.pet_idle_clock = IdleClock()
-            self._pet_health_timer = GLib.timeout_add_seconds(5, self._poll_pet_health)
+            self._pet_health_timer = GLib.timeout_add_seconds(8, self._poll_pet_health)
         self._tick_clock()
         GLib.timeout_add_seconds(15, self._tick_clock)
         self._refresh_weather()
@@ -1326,14 +1327,14 @@ class Notch(Gtk.Window):
 
     # ---- Overview: Today, Focus timer, Weather, System stats (NotchPixel's widget order)
     def _build_overview(self):
-        grid = Gtk.Grid(column_spacing=8, row_spacing=8, column_homogeneous=True)
+        grid = Gtk.Grid(column_spacing=7, row_spacing=7, column_homogeneous=True)
         cards = []
 
         def card(child):
             f = Gtk.Box()
             f.get_style_context().add_class("card")
             for side in ("top", "bottom", "start", "end"):
-                getattr(child, f"set_margin_{side}")(12)
+                getattr(child, f"set_margin_{side}")(10)
             f.pack_start(child, True, True, 0)
             return f
 
@@ -2123,7 +2124,10 @@ class Notch(Gtk.Window):
         return left - xpad <= x <= left + w + xpad and top - ypad <= y <= top + h + ypad
 
     def _poll_hover(self):
-        self._update_coverage()
+        now = time.monotonic()
+        if now - self._last_cov_check >= 0.4:
+            self._last_cov_check = now
+            self._update_coverage()
         if self.anim or self.dragging or self.fullscreen_hidden:
             return True
         inside = self._pointer_inside()
