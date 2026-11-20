@@ -70,6 +70,76 @@ def battery():
     return None
 
 
+def _read_int(path):
+    try:
+        with open(path) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def format_duration_hm(hours):
+    """Format positive hours as '2h 15m' or '42m'."""
+    mins = max(1, round(hours * 60))
+    h, m = divmod(mins, 60)
+    return f"{h}h {m}m" if h else f"{m}m"
+
+
+def battery_estimate():
+    """Return a short remaining / to-full time string, or None when unavailable."""
+    for d in sorted(glob.glob("/sys/class/power_supply/BAT*")):
+        try:
+            with open(os.path.join(d, "status")) as f:
+                status = f.read().strip()
+        except OSError:
+            continue
+        if status not in ("Discharging", "Charging"):
+            return None
+        now = _read_int(os.path.join(d, "energy_now")) or _read_int(os.path.join(d, "charge_now"))
+        full = _read_int(os.path.join(d, "energy_full")) or _read_int(os.path.join(d, "charge_full"))
+        rate = _read_int(os.path.join(d, "power_now")) or _read_int(os.path.join(d, "current_now"))
+        if not now or not rate or rate <= 0:
+            continue
+        if status == "Discharging":
+            hours = now / rate
+            return f"{format_duration_hm(hours)} left" if 0.02 < hours < 48 else None
+        if full and full > now:
+            hours = (full - now) / rate
+            return f"{format_duration_hm(hours)} to full" if 0.02 < hours < 24 else None
+    return None
+
+
+def cycle_audio_output():
+    """Switch to the next PulseAudio/PipeWire output sink and return its friendly name, or None."""
+    out = pactl("list", "sinks")
+    if not out:
+        return None
+    sinks = []
+    cur_name, cur_desc = None, None
+    for line in out.splitlines():
+        s = line.strip()
+        if s.startswith("Name:"):
+            if cur_name:
+                sinks.append((cur_name, cur_desc or cur_name))
+            cur_name = s.split(":", 1)[1].strip()
+            cur_desc = None
+        elif s.startswith("Description:") and cur_name:
+            cur_desc = s.split(":", 1)[1].strip()
+    if cur_name:
+        sinks.append((cur_name, cur_desc or cur_name))
+    if len(sinks) < 2:
+        return sinks[0][1] if sinks else None
+    current = (pactl("get-default-sink") or "").strip()
+    idx = next((i for i, (n, _d) in enumerate(sinks) if n == current), -1)
+    nxt_name, nxt_desc = sinks[(idx + 1) % len(sinks)]
+    pactl("set-default-sink", nxt_name)
+    for line in (pactl("list", "short", "sink-inputs") or "").splitlines():
+        parts = line.split()
+        if parts and parts[0].isdigit():
+            pactl("move-sink-input", parts[0], nxt_name)
+    return nxt_desc
+
+
 def battery_alert_state():
     """Return (percent, plugged in) using mains state when the kernel exposes it."""
     status = battery()

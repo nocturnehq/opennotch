@@ -10,11 +10,25 @@ MPRIS_PATH = "/org/mpris/MediaPlayer2"
 PLAYER_IFACE = "org.mpris.MediaPlayer2.Player"
 
 
+def media_allowed(bus_name, mode="all", apps=""):
+    """Filter MPRIS bus names by allow/ignore list (comma-separated, case-insensitive)."""
+    if mode not in ("allow", "ignore"):
+        return True
+    tokens = [t.strip().lower() for t in (apps or "").split(",") if t.strip()]
+    if not tokens:
+        return True
+    short = bus_name[len(MPRIS_PREFIX):].lower() if bus_name.startswith(MPRIS_PREFIX) else bus_name.lower()
+    matched = any(t in short for t in tokens)
+    return matched if mode == "allow" else not matched
+
+
 class Mpris:
     """Tracks every MPRIS2 player; `on_change()` is called whenever the active one changes state."""
 
-    def __init__(self, on_change):
+    def __init__(self, on_change, mode="all", apps=""):
         self.on_change = on_change
+        self.mode = mode
+        self.apps = apps
         self.players = {}  # bus name -> Gio.DBusProxy
         self.active = None
         self.dbus = Gio.DBusProxy.new_for_bus_sync(
@@ -23,7 +37,7 @@ class Mpris:
         self.dbus.connect("g-signal", self._on_dbus_signal)
         names = self.dbus.call_sync("ListNames", None, Gio.DBusCallFlags.NONE, -1, None).unpack()[0]
         for name in names:
-            if name.startswith(MPRIS_PREFIX):
+            if name.startswith(MPRIS_PREFIX) and media_allowed(name, self.mode, self.apps):
                 self._add(name)
         self._pick()
 
@@ -34,7 +48,7 @@ class Mpris:
         if not name.startswith(MPRIS_PREFIX):
             return
         self.players.pop(name, None)
-        if new:
+        if new and media_allowed(name, self.mode, self.apps):
             self._add(name)
         self._pick()
         self.on_change()

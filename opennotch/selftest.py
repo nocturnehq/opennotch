@@ -278,10 +278,26 @@ def test_pet_jobs():
             paint_pet(cr, sp, 64, 32, pose=pose, badge=2 if pose == "hop" else 0, phase=1.0)
 
 
+def test_milestone1():
+    from .dbuswatch import media_allowed
+    from .system import format_duration_hm
+
+    assert media_allowed("org.mpris.MediaPlayer2.spotify", "all", "firefox")
+    assert media_allowed("org.mpris.MediaPlayer2.spotify", "allow", "spotify, vlc")
+    assert not media_allowed("org.mpris.MediaPlayer2.firefox.instance1", "allow", "spotify, vlc")
+    assert not media_allowed("org.mpris.MediaPlayer2.firefox.instance1", "ignore", "firefox")
+    assert media_allowed("org.mpris.MediaPlayer2.spotify", "ignore", "firefox")
+    assert format_duration_hm(2.5) == "2h 30m" and format_duration_hm(0.25) == "15m"
+    cfg = config.validate({"title_in_pill": True, "media_source_mode": "ignore", "media_source_apps": "firefox",
+                           "key_output": "<Ctrl><Alt>O", "record_pc_sound": False, "game_strip_everywhere": True})
+    assert cfg["title_in_pill"] and cfg["media_source_mode"] == "ignore" and cfg["media_source_apps"] == "firefox"
+    assert cfg["key_output"] == "<Ctrl><Alt>O" and not cfg["record_pc_sound"] and cfg["game_strip_everywhere"]
+
+
 def main():
     tests = [("config loader", test_config), ("lyrics parser", test_lyrics), ("clipboard store", test_clipstore),
              ("socket protocol", test_protocol), ("mic recording parser", lambda _t: test_source_outputs()),
-             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs())]
+             ("twitch chat parser", lambda _t: test_twitch()), ("taskbar keys", lambda _t: test_taskkeys()), ("language", lambda _t: test_language()), ("dock previews", lambda _t: test_previews()), ("alt+tab layout", lambda _t: test_alttab()), ("youtube chat parser", lambda _t: test_youtube()), ("widget order", lambda _t: test_widget_order()), ("dock background", lambda _t: test_dockbg()), ("pet jobs", lambda _t: test_pet_jobs()), ("media & audio essentials", lambda _t: test_milestone1())]
     failed = 0
     for name, fn in tests:
         with tempfile.TemporaryDirectory() as tmp:

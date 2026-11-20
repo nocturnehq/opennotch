@@ -121,12 +121,18 @@ SECTIONS = [
         ("HUDs", [
             T("show_volume_hud", "Volume", "Show volume changes in the island."),
             T("replace_volume_flyout", "Hide the system volume pop-up", "The island is the only readout."),
+            T("show_mic_hud", "Microphone mute", "Show an indicator when muting or unmuting the mic."),
             T("show_brightness_hud", "Brightness", "Show screen brightness changes."),
             T("show_battery_hud", "Battery", "Charging, unplugged and low battery."),
+            T("show_battery_estimate", "Battery time estimate", "Show estimated time remaining or to full."),
             T("show_bluetooth_hud", "Bluetooth devices", "Connect and disconnect, with battery level."),
             T("show_lock_keys_hud", "Caps Lock and Num Lock", "Show when a lock key is turned on or off."),
         ]),
         ("Live activities", [
+            T("title_in_pill", "Track title in closed pill", "Show the playing song's title beside the equalizer."),
+            C("media_source_mode", "Media players", "Which media players the island listens to.",
+              [("all", "All"), ("allow", "Only listed"), ("ignore", "Ignore listed")]),
+            X("media_source_apps", "Player filter list", "Comma-separated player names (e.g. spotify, firefox).", "spotify, brave"),
             T("show_download_activity", "Downloads", "Files arriving in your Downloads folder."),
             T("show_call_activity", "Calls", "A red dot and a timer while an app uses the microphone."),
             T("show_privacy_indicator", "Privacy dot", "Show when PipeWire reports an active camera or screen share. OpenNotch always shows its own recording indicator."),
@@ -206,7 +212,8 @@ SECTIONS = [
     ("Calls", "call-start-symbolic", [
         ("Calls", [T("meeting_countdown", "Meeting countdown", "Show the next timed meeting in the hour before it starts."),
                    F("calendar_file", "Calendar file", "Choose a local iCalendar export for the countdown.", ["*.ics", "*.ICS"]),
-                   T("record_microphone", "Record microphone", "Your voice in screen recordings.")]),
+                   T("record_microphone", "Record microphone", "Your voice in screen recordings."),
+                   T("record_pc_sound", "Record desktop audio", "Include PC sound in screen recordings.")]),
     ]),
     ("Streaming", "camera-video-symbolic", [
         ("Streaming", [T("obs_enabled", "OBS", "Show recording and streaming status from local OBS. Ctrl+Alt+R toggles recording."),
@@ -218,6 +225,9 @@ SECTIONS = [
     ("Gaming", "input-gaming-symbolic", [
         ("Game strip", [T("game_strip_fullscreen", "Game strip", "In fullscreen apps and games, a CPU, GPU and RAM "
                           "strip instead of hiding."),
+                        T("game_strip_everywhere", "Show game strip everywhere", "Keep the stats strip on the pill even outside fullscreen."),
+                        T("overlay_network", "Show network speed", "Include live download rate in the game strip."),
+                        T("overlay_clock", "Show clock", "Include the time in the game strip."),
                         T("hide_in_fullscreen", "Hide in fullscreen", "")]),
     ]),
     ("AI agents", "user-available-symbolic", [
@@ -235,7 +245,8 @@ SECTIONS = [
                        X("key_play", "Play / pause", "", "<Ctrl><Alt>P"),
                        X("key_timer", "Focus timer", "", config.DEFAULTS["key_timer"]),
                        X("key_hide", "Hide the island", "", "<Ctrl><Alt>H"),
-                       X("key_mic", "Mute the microphone everywhere", "", "<Ctrl><Alt>M")]),
+                       X("key_mic", "Mute the microphone everywhere", "", "<Ctrl><Alt>M"),
+                       X("key_output", "Switch audio output", "", "<Ctrl><Alt>O")]),
     ]),
     ("About", "help-about-symbolic", [
         ("About", [dict(key="", title="OpenNotch", desc="A free Dynamic-Island-style notch for Linux. Settings mirror "

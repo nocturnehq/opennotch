@@ -828,7 +828,7 @@ class Notch(Gtk.Window):
             self.clipboard.connect("owner-change", self._on_clipboard)
 
         try:
-            self.mpris = Mpris(self._on_music)
+            self.mpris = Mpris(self._on_music, self.cfg["media_source_mode"], self.cfg["media_source_apps"])
         except GLib.Error as e:
             print("opennotch: MPRIS unavailable:", e.message)
             self.mpris = None
@@ -991,10 +991,11 @@ class Notch(Gtk.Window):
         return (thickness, h, min(r, thickness / 2)) if self.side else (w, thickness, min(r, thickness / 2))
 
     def _update_coverage(self):
-        if not (self.cfg["slim_strip"] or self.cfg["hide_in_fullscreen"] or self.cfg["game_strip_fullscreen"]):
+        if not (self.cfg["slim_strip"] or self.cfg["hide_in_fullscreen"] or
+                self.cfg["game_strip_fullscreen"] or self.cfg["game_strip_everywhere"]):
             return
         maximized, fullscreen = coverage(self.monitor)
-        game = self.cfg["game_strip_fullscreen"] and fullscreen  # the strip replaces hiding and the slim edge
+        game = self.cfg["game_strip_everywhere"] or (self.cfg["game_strip_fullscreen"] and fullscreen)
         slim = self.cfg["slim_strip"] and (maximized or fullscreen) and not game
         hidden = self.cfg["hide_in_fullscreen"] and fullscreen and not game
         if (slim, hidden, game) == (self.slim, self.fullscreen_hidden, self.game_strip):
@@ -1004,7 +1005,12 @@ class Notch(Gtk.Window):
             self.game_strip = game
             self._cancel("game_timer")
             if game:
-                self.game_label.set_text(("\n" if self.side else "   ").join(("CPU 100%", "GPU 100%", "RAM 100%")))
+                sample = ["CPU 100%", "GPU 100%", "RAM 100%"]
+                if self.cfg["overlay_network"]:
+                    sample.append("↓ 999 KB/s")
+                if self.cfg["overlay_clock"]:
+                    sample.append("23:59")
+                self.game_label.set_text(("\n" if self.side else "   ").join(sample))
                 self.game_size, _ = self.game_label.get_preferred_size()  # widest reading: the pill keeps this size
                 self._update_pill()
                 self.game_box.set_size_request(*map(int, self.geo["pill"][:2]))
@@ -1041,6 +1047,9 @@ class Notch(Gtk.Window):
         self.pill_eq.pixels = self.cfg["visualizer"] == "pixels"
         center = Gtk.Box(spacing=6)
         center.pack_start(self.pill_art, False, False, 0)
+        self.pill_title = label("", "pilltext", chars=16)
+        self.pill_title.set_no_show_all(True)
+        center.pack_start(self.pill_title, False, False, 0)
         center.pack_start(self.pill_eq, False, False, 0)
         self.pill_pet = None
         if self.cfg["resting"] == "pet":
@@ -2338,14 +2347,24 @@ class Notch(Gtk.Window):
                 value = None
             return f"{name} {'–' if value is None else f'{value:.0f}%'}"
         # shortcut: no FPS on X11 without hooking the game (MangoHud); add it if a reader turns up
-        parts = (pct("CPU", self.cpu.percent), pct("GPU", system.gpu_percent), pct("RAM", system.ram_percent))
+        parts = [pct("CPU", self.cpu.percent), pct("GPU", system.gpu_percent), pct("RAM", system.ram_percent)]
+        if self.cfg["overlay_network"] and getattr(self, "net", None) is not None:
+            rx, _tx = self.net.rates()
+            parts.append(f"↓ {system.human_rate(rx)}")
+        if self.cfg["overlay_clock"]:
+            parts.append(time.strftime("%H:%M"))
         self.game_label.set_text(("\n" if self.side else "   ").join(parts))
         return True
 
     def _tick_widgets(self):
         bat = system.battery()
         self.w_batt.set_text(f"{bat[0]}%" if bat else "–")
-        self.w_batt_sub.set_text(("Charging" if bat[1] else "On battery") if bat else "No battery")
+        if bat:
+            sub = "Charging" if bat[1] else "On battery"
+            est = system.battery_estimate() if self.cfg["show_battery_estimate"] else None
+            self.w_batt_sub.set_text(f"{sub} · {est}" if est else sub)
+        else:
+            self.w_batt_sub.set_text("No battery")
         try:
             disk = shutil.disk_usage(os.path.expanduser("~"))
             self.w_disk.set_text(f"{disk.free / 1e9:.0f} GB")
@@ -2489,8 +2508,13 @@ class Notch(Gtk.Window):
         system.pactl("set-source-mute", "@DEFAULT_SOURCE@", "toggle")
         muted = system.mic_muted()
         self._show_mic_state(muted)
-        if toast:
-            self.show_toast("Microphone muted" if muted else "Microphone on", "fail" if muted else "ok", 2)
+        if toast and self.cfg["show_mic_hud"]:
+            self.show_osd("microphone-sensitivity-muted-symbolic" if muted else "audio-input-microphone-symbolic",
+                          0.0 if muted else 1.0, "Microphone · muted" if muted else "Microphone · on")
+
+    def _cycle_audio_output(self):
+        name = system.cycle_audio_output()
+        self.show_toast(name or "No other audio output", "audio-speakers-symbolic", 2.5)
 
     def _bind_hotkey(self):
         if not Keybinder:
@@ -2499,6 +2523,7 @@ class Notch(Gtk.Window):
         Keybinder.init()
         c = self.cfg
         keys = {c["key_mic"]: lambda: self._toggle_mic(),
+                c["key_output"]: lambda: self._cycle_audio_output(),
                 c["key_toggle"]: lambda: self._go("pill") if self.state == "card" else self._open_now(),
                 c["key_play"]: lambda: self.mpris and self.mpris.call("PlayPause"),
                 c["key_timer"]: lambda: self._pomo_toggle(),
@@ -2588,7 +2613,7 @@ class Notch(Gtk.Window):
         if not self.cfg["screen_record"]:
             raise ValueError("Enable screen recording in Settings › Tools.")
         try:
-            self.recorder.start(self._capture_monitor(), self.cfg["record_microphone"])
+            self.recorder.start(self._capture_monitor(), self.cfg["record_microphone"], self.cfg["record_pc_sound"])
         except OSError as error:
             raise ValueError(str(error)) from error
 
@@ -2794,6 +2819,10 @@ class Notch(Gtk.Window):
         info = self.mpris.info() if getattr(self, "mpris", None) else None
         playing = bool(info and info["status"] == "Playing")
         self.pill_art.set_visible(playing)
+        show_title = playing and self.cfg["title_in_pill"] and not self.side
+        self.pill_title.set_visible(show_title)
+        if show_title:
+            self.pill_title.set_text(info["title"])
         self.pill_eq.set_visible(playing)
         self.pill_eq.run(playing and self.state == "pill")
         rec = self.recording_since is not None

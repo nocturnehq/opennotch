@@ -58,7 +58,7 @@ class ScreenRecorder:
     def active(self):
         return self.process is not None
 
-    def start(self, monitor, microphone=False):
+    def start(self, monitor, microphone=False, pc_sound=False):
         ffmpeg = shutil.which("ffmpeg")
         display = os.environ.get("DISPLAY")
         if ffmpeg is None:
@@ -74,8 +74,16 @@ class ScreenRecorder:
             raise ValueError("The selected screen is outside the X11 capture area.")
         argv = [ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "x11grab", "-framerate", "30",
                 "-video_size", f"{width}x{height}", "-i", f"{display}+{x},{y}"]
-        if microphone:
+        if microphone and pc_sound:
             argv += ["-thread_queue_size", "512", "-f", "pulse", "-name", RECORDER_APP, "-i", "default",
+                     "-thread_queue_size", "512", "-f", "pulse", "-name", RECORDER_APP, "-i", "@DEFAULT_SINK@.monitor",
+                     "-filter_complex", "[1:a][2:a]amix=inputs=2:duration=longest[a]",
+                     "-map", "0:v:0", "-map", "[a]", "-c:a", "aac"]
+        elif microphone:
+            argv += ["-thread_queue_size", "512", "-f", "pulse", "-name", RECORDER_APP, "-i", "default",
+                     "-map", "0:v:0", "-map", "1:a:0", "-c:a", "aac"]
+        elif pc_sound:
+            argv += ["-thread_queue_size", "512", "-f", "pulse", "-name", RECORDER_APP, "-i", "@DEFAULT_SINK@.monitor",
                      "-map", "0:v:0", "-map", "1:a:0", "-c:a", "aac"]
         else:
             argv += ["-an"]

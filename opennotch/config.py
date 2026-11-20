@@ -68,6 +68,15 @@ DEFAULTS = {
     "show_volume_hud": True,
     "show_brightness_hud": True,
     "show_battery_hud": True,
+    "show_battery_estimate": True,
+    "show_mic_hud": True,
+    "title_in_pill": False,
+    "media_source_mode": "all",
+    "media_source_apps": "",
+    "record_pc_sound": True,
+    "game_strip_everywhere": False,
+    "overlay_network": True,
+    "overlay_clock": True,
     "show_bluetooth_hud": True,
     "show_lock_keys_hud": True,
     "show_call_activity": True,
@@ -118,14 +127,17 @@ DEFAULTS = {
     "key_timer": "<Ctrl><Alt>Y",
     "key_hide": "<Ctrl><Alt>H",
     "key_mic": "<Ctrl><Alt>M",
+    "key_output": "<Ctrl><Alt>O",
 }
 CHOICES = {"language": ("auto", "en", "el"), "alt_tab_style": ("ring", "fan", "flip"), "surface": ("black", "glass"), "resting": ("empty", "clock", "pet"), "pet": ("cat", "dog", "bunny"), "progress": ("comet", "wave"),
            "shape": ("notch", "island"), "position": ("left", "center", "right", "left_side", "right_side"),
            "clipboard_layout": ("cards", "list"), "motion": ("fluid", "balanced", "battery"), "open_on": ("last", "music"), "visualizer": ("pixels", "bars"),
            "font": ("Nunito", "Geist", "Inter", "Roboto", "Noto Sans", "Ubuntu", "SF Pro Text"),
-           "music_background": ("album", "black"), "anim_speed": ("relaxed", "normal", "quick")}
+           "music_background": ("album", "black"), "anim_speed": ("relaxed", "normal", "quick"),
+           "media_source_mode": ("all", "allow", "ignore")}
 BOOLS = ("lyrics", "volume_popups", "ask_claude", "desktop_widgets", "reverse_scroll", "show_volume_hud",
-         "show_brightness_hud", "show_battery_hud", "show_bluetooth_hud", "show_lock_keys_hud",
+         "show_brightness_hud", "show_battery_hud", "show_battery_estimate", "show_mic_hud", "title_in_pill",
+         "record_pc_sound", "game_strip_everywhere", "overlay_network", "overlay_clock", "show_bluetooth_hud", "show_lock_keys_hud",
          "show_call_activity", "mirror_notifications", "notifications_panel",
          "notice_clock_time", "shelf_enabled", "clipboard_enabled", "controls_panel", "show_date_widget",
          "show_timer_widget", "show_weather_widget", "show_stats_widget", "show_battery_widget", "show_storage_widget", "show_upnext_widget", "show_clock_widget", "show_nowplaying_widget", "show_notes_widget", "weather_fahrenheit", "notify_endpoint",
@@ -133,7 +145,7 @@ BOOLS = ("lyrics", "volume_popups", "ask_claude", "desktop_widgets", "reverse_sc
          "longer_notices", "hidden_until_hover", "show_download_activity", "slim_strip", "game_strip_fullscreen", "taskbar_number_keys", "taskbar_previews", "alt_tab_animation",
          "hide_in_fullscreen", "color_pick", "agents_notify_done", "captures_to_shelf",
          "screen_record", "record_microphone", "show_privacy_indicator", "web_panel", "all_monitors", "phone_share", "meeting_countdown", "obs_enabled", "live_wallpaper")
-KEYS = ("key_toggle", "key_play", "key_timer", "key_hide", "key_mic")
+KEYS = ("key_toggle", "key_play", "key_timer", "key_hide", "key_mic", "key_output")
 
 # key -> (min, max) for integers
 RANGES = {
@@ -181,7 +193,7 @@ def validate(raw):
     for key, allowed in CHOICES.items():
         if raw.get(key) in allowed:
             cfg[key] = raw[key]
-    for key, limit in (("calendar_file", 4096), ("live_wallpaper_file", 4096), ("obs_password", 500)):
+    for key, limit in (("calendar_file", 4096), ("live_wallpaper_file", 4096), ("obs_password", 500), ("media_source_apps", 500)):
         value = raw.get(key)
         if isinstance(value, str) and len(value) <= limit and "\x00" not in value:
             cfg[key] = value
