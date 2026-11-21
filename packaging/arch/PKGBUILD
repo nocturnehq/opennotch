@@ -4,7 +4,7 @@ pkgver=0.1.0.r0
 pkgrel=1
 pkgdesc="Dynamic-Island-style notch, Now Playing bar, widgets, clipboard, shelf, and liquid-glass dock helper for Linux X11"
 arch=('any')
-url="https://github.com/panpapadakis30014-stack/opennotch"
+url="https://github.com/nocturnehq/opennotch"
 license=('MIT')
 depends=(
   'python'
@@ -27,7 +27,7 @@ optdepends=(
 makedepends=('git')
 provides=('opennotch')
 conflicts=('opennotch')
-source=("opennotch::git+https://github.com/panpapadakis30014-stack/opennotch.git")
+source=("opennotch::git+https://github.com/nocturnehq/opennotch.git")
 sha256sums=('SKIP')
 
 pkgver() {
