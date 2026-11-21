@@ -1465,8 +1465,15 @@ class Notch(Gtk.Window):
         tabs_wanted = [t for t in config.TABS if (t in requested or t in ("web", "launcher", "camera")) and not off.get(t)]
         if not tabs_wanted:
             tabs_wanted = ["music"]
+        theme = Gtk.IconTheme.get_default()
+        icon_fallbacks = {
+            "notifications": ("bell-outline-symbolic", "notifications-symbolic", "preferences-system-notifications-symbolic", "alarm-symbolic"),
+        }
         for name in tabs_wanted:
-            b = Gtk.Button.new_from_icon_name(TAB_ICONS[name], Gtk.IconSize.BUTTON)
+            icon_name = TAB_ICONS[name]
+            if name in icon_fallbacks:
+                icon_name = next((n for n in icon_fallbacks[name] if theme.has_icon(n)), icon_name)
+            b = Gtk.Button.new_from_icon_name(icon_name, Gtk.IconSize.BUTTON)
             b.set_tooltip_text(TAB_TITLES[name])
             b.set_relief(Gtk.ReliefStyle.NONE)
             b.set_can_focus(False)

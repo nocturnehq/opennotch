@@ -1,89 +1,97 @@
+<div align="center">
+
 # OpenNotch
 
-A free, open-source, Dynamic-Island-style notch & Now Playing bar for **Linux (X11)** and **Windows 10/11**. Everything stays local on your machine — no telemetry, no accounts, no cloud sync.
+**Liquid glass Dynamic Island, Now Playing bar, and matching taskbar for Linux (X11) and Windows 10/11.**
+
+100% free, open-source, and local — no telemetry, no accounts, no cloud sync.
+
+[![CI](https://github.com/nocturnehq/opennotch/actions/workflows/ci.yml/badge.svg)](https://github.com/nocturnehq/opennotch/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/nocturnehq/opennotch?style=flat)](https://github.com/nocturnehq/opennotch/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-white.svg)](LICENSE)
+
+</div>
+
+---
 
 ## Features
 
-- **Dynamic Island & Attached Notch** — floating glass island or top-edge notch with smooth spring morphing.
-- **Now Playing Music Bar** — 60 fps fluid progress bar (**Glass**, **Comet**, and **Wave** styles), custom SF-Symbols-style vector transport icons, ambient album-art glow, synced lyrics (LRCLIB), optional inline volume slider, and 60 fps idle pill visualizers (**Bars**, **Pixels**, **Dots**).
-- **Overview Widgets** — Today calendar, Focus timer ring, Weather, live CPU/GPU/RAM/Network stats, Battery, Storage, Calculator, Countdown, To-do, Reminders, and World Clock.
-- **Controls** — System volume (PipeWire / PulseAudio on Linux, CoreAudio on Windows), screen brightness (KDE PowerDevil, Cinnamon SettingsDaemon, `brightnessctl`, and Windows WMI), and quick toggles.
-- **Built-in Web Tab** (Linux) — Persistent browser inside the island for YouTube Music, Spotify, SoundCloud, YouTube, ChatGPT, and Claude.
-- **Clipboard History & File Shelf** — Quick text clipboard history (ignoring password manager hints) and drag-and-drop file shelf.
-- **Notifications, Screenshots (`PrtSc`), Screen Recording, Camera Mirror & Floating Chat Drawer.**
-- **Liquid-Glass Dock & Companion Pet** (Linux + Plank) — Waving glass dock backdrop and interactive companion pet.
+- **Real Liquid Glass** — Translucent blurred backdrop that adapts to your wallpaper and album art, with floating Dynamic Island or attached notch shapes.
+- **Now Playing Music Bar** — Interactive **Wave**, **Comet**, and **Glass** scrub bars, crisp vector transport controls, synced lyrics (LRCLIB), and live pill visualizers (**Bars**, **Pixels**, **Dots**).
+- **Live Companion Pet** — Interactive bunny, cat, or dog that hangs out right in your notch.
+- **Overview Widgets** — Calendar, Focus timer ring, Weather, live CPU/GPU/RAM/Network stats, Battery, Storage, Calculator, Countdown, To-do, Reminders, and World Clock.
+- **Instant System Controls** — Volume (PipeWire / PulseAudio on Linux, CoreAudio on Windows), screen brightness (KDE PowerDevil, Cinnamon, `brightnessctl`, Windows WMI), and quick toggles.
+- **Custom Liquid Glass Taskbar** (Linux + Plank) — Matching floating glass dock with icon magnification, tray & clock, window previews, and `Super + 1–9` shortcuts.
+- **Built-in Web Tab, Clipboard History & File Shelf** — Quick-access browser drawer (YouTube Music, Spotify, SoundCloud, YouTube, ChatGPT, Claude), local clipboard history, drag-and-drop shelf, notifications, screenshots, and screen recording.
 - **Bilingual UI** — English and Greek (`en` / `el`).
 
 ---
 
-## Install on Linux
+## Download & Install
 
-### Arch Linux (Manjaro, EndeavourOS, CachyOS)
-```bash
-cd packaging/arch
-makepkg -si
-```
-Or install dependencies automatically and use the user installer:
-```bash
-./packaging/install-deps.sh
-./install.sh
-```
+### Windows 10 & 11
 
-### Ubuntu, Linux Mint, Debian & Fedora
-```bash
-./packaging/install-deps.sh   # installs GTK 3, PyGObject, Xlib, Wnck, WebKit2, PulseAudio utils
-./install.sh                  # installs launcher, desktop entries & login autostart
-```
+1. Download **`OpenNotch-Windows.zip`** from [**Releases**](https://github.com/nocturnehq/opennotch/releases).
+2. Unzip it anywhere and double-click **`OpenNotch.exe`**.
 
-To uninstall:
-```bash
-./uninstall.sh          # add --purge to also remove settings and clipboard history
-```
-
-Run directly from a checkout without installing:
-```bash
-./bin/opennotch
-```
-
----
-
-## Install / Build on Windows 10 & 11
-
-The Windows edition lives in [`windows/`](windows/) (Python + PySide6 / Qt6 with Win32 topmost toolwindow, Windows 11 DWM Acrylic glass, native SMTC media controls, CoreAudio volume, and WMI brightness):
+<details>
+<summary>Building from source on Windows (developers)</summary>
 
 ```powershell
 cd windows
 pip install -r requirements.txt
-python -m opennotch_win        # run directly
-python build_exe.py            # builds standalone dist\OpenNotch.exe
+python -m opennotch_win        # run from source
+python build_exe.py            # build standalone dist\OpenNotch.exe
 ```
-
-To build a full Windows installer (`OpenNotch-Setup.exe`), open [`windows/opennotch.iss`](windows/opennotch.iss) in Inno Setup after running `build_exe.py`.
-
-Prebuilt **Windows `.exe`** and **Arch `.pkg.tar.zst`** artifacts are also built automatically by GitHub Actions in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+</details>
 
 ---
 
-## CLI & Scripting (Linux)
+### Linux — Ubuntu, Mint, Debian & Fedora
 
-Send quick status toasts from any build script or terminal:
+```bash
+git clone https://github.com/nocturnehq/opennotch.git
+cd opennotch
+./packaging/install-deps.sh
+./install.sh
+```
+
+### Arch Linux (Manjaro, EndeavourOS, CachyOS)
+
+Download the prebuilt `.pkg.tar.zst` from [**Releases**](https://github.com/nocturnehq/opennotch/releases), or build locally:
+
+```bash
+cd packaging/arch
+makepkg -si
+```
+
+<details>
+<summary>Run without installing / Uninstall</summary>
+
+```bash
+./bin/opennotch           # run directly from checkout
+./uninstall.sh            # uninstall (add --purge to remove settings & history)
+```
+</details>
+
+---
+
+## CLI Notifications (Linux)
+
+Send status toasts straight to the island from any terminal or build script:
+
 ```bash
 opennotch say "Build finished" --icon ok --seconds 6
 make && opennotch say "Build OK" --icon ok || opennotch say "Build failed" --icon fail
 ```
 
-Protocol: connect to `$XDG_RUNTIME_DIR/opennotch.sock`, send one JSON line such as `{"cmd": "say", "text": "Done", "icon": "ok|fail|info", "seconds": 5}`, and read `{"ok": true}`.
-
 ---
 
-## Development & Tests
+## Tests
 
 ```bash
-# Linux test suite
-python3 -m opennotch.selftest
-
-# Windows package test suite (runs on Linux and Windows)
-python3 windows/selftest_win.py
+python3 -m opennotch.selftest   # Linux test suite
+python3 windows/selftest_win.py # Windows test suite
 ```
 
 ## License

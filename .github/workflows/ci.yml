@@ -41,7 +41,7 @@ jobs:
           path: packaging/arch/*.pkg.tar.*
 
   windows-build:
-    name: Windows 10/11 Standalone .exe
+    name: Windows 10/11 Portable Zip
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,8 +59,15 @@ jobs:
       - name: Build OpenNotch.exe
         working-directory: windows
         run: python build_exe.py
-      - name: Upload OpenNotch.exe artifact
+      - name: Package OpenNotch-Windows.zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-win | Out-Null
+          Copy-Item windows/dist/OpenNotch.exe release-win/
+          Copy-Item LICENSE release-win/
+          Compress-Archive -Path release-win/* -DestinationPath OpenNotch-Windows.zip -Force
+      - name: Upload OpenNotch-Windows.zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenNotch-Windows-x64
-          path: windows/dist/OpenNotch.exe
+          name: OpenNotch-Windows
+          path: OpenNotch-Windows.zip
