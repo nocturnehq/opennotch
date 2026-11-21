@@ -769,6 +769,9 @@ def apply_system(key, value):
             subprocess.run(["pkill", "-x", "plank"])
     elif key == "taskbar_auto_hide":
         _dconf(plank + "hide-mode", "'dodge-maximized'" if value else "'none'")
+    elif key == "taskbar_status":
+        if not value:
+            _dconf(plank + "offset", "0")
     elif key == "taskbar_dock":
         _dconf(plank + "zoom-enabled", "true" if value else "false")
     elif key == "taskbar_dock_size":

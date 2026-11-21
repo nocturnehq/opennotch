@@ -4006,6 +4006,15 @@ def main():
         win.display_mirrors = DisplayMirrors(win)
     if cfg["custom_taskbar"]:
         from .dockbg import DockBackground
+        if not cfg["taskbar_status"]:
+            try:
+                dock_cfg = Gio.Settings.new_with_path(
+                    "net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/dock1/"
+                )
+                if dock_cfg.get_int("offset") != 0:
+                    dock_cfg.set_int("offset", 0)
+            except Exception:
+                pass
         win.dock_bg = DockBackground(extras.KDE, cfg["reduce_motion"], cfg["surface"])
     if cfg["resting"] == "pet" and not cfg["reduce_motion"]:
         from .pet import RoamingPet
