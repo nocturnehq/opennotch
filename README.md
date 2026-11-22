@@ -10,7 +10,19 @@
 [![Release](https://img.shields.io/github/v/release/nocturnehq/opennotch?style=flat)](https://github.com/nocturnehq/opennotch/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-white.svg)](LICENSE)
 
+<br/>
+
+![OpenNotch Live Demo](assets/demo.gif)
+
 </div>
+
+---
+
+## Screenshots
+
+| Now Playing & Liquid Glass | Overview Widgets & Focus Timer | Liquid Glass Taskbar Wave |
+| :---: | :---: | :---: |
+| ![Now Playing](assets/preview_glass.png) | ![Overview Widgets](assets/preview_focus.png) | ![Glass Taskbar](assets/preview_dock.png) |
 
 ---
 
